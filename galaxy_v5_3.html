@@ -77,6 +77,22 @@
 
 #toast{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);z-index:60;background:rgba(8,16,42,0.96);border:0.5px solid rgba(100,140,220,0.35);color:#dce6ff;font-size:12.5px;font-family:var(--font-sans);padding:8px 15px;border-radius:8px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:80%;text-align:center;}
 
+
+/* ---- system info card (NMS style) ---- */
+#sys-card{position:absolute;z-index:35;display:none;pointer-events:auto;}
+.sc-wrap{background:rgba(3,7,24,0.97);border:0.5px solid rgba(100,140,220,0.3);border-radius:12px;padding:16px 18px;min-width:215px;max-width:265px;box-shadow:0 6px 40px rgba(0,0,40,0.8);}
+.sc-dot{display:inline-block;width:13px;height:13px;border-radius:50%;flex-shrink:0;}
+.sc-name{font-size:16px;font-weight:600;color:#dce6ff;line-height:1.2;}
+.sc-meta{font-size:12px;color:rgba(140,165,225,0.68);margin-top:7px;line-height:1.65;}
+.sc-bar-wrap{height:3px;background:rgba(80,110,180,0.18);border-radius:2px;margin-top:11px;overflow:hidden;}
+.sc-bar{height:100%;border-radius:2px;}
+.sc-btns{display:flex;gap:8px;margin-top:13px;}
+.sc-travel{flex:1;background:rgba(35,120,70,0.65);border:0.5px solid rgba(70,190,110,0.55);color:#aaffc8;border-radius:7px;font-size:13px;padding:8px 10px;cursor:pointer;font-family:var(--font-sans);}
+.sc-travel:hover{background:rgba(45,155,85,0.82);color:#d0ffe4;}
+.sc-close{background:rgba(12,22,55,0.75);border:0.5px solid rgba(80,110,180,0.25);color:rgba(155,175,225,0.7);border-radius:7px;font-size:13px;padding:8px 12px;cursor:pointer;font-family:var(--font-sans);}
+.sc-close:hover{background:rgba(28,48,95,0.85);color:#c8d4f0;}
+
+
 /* ---- mission (study timer) ---- */
 #mission{position:absolute;inset:0;z-index:45;display:none;align-items:center;justify-content:center;padding:26px;background:rgba(2,6,18,0.92);backdrop-filter:blur(4px);}
 .m-box{max-width:400px;width:100%;text-align:center;}
@@ -117,6 +133,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
     <div id="hud-tl"><div class="hl">System</div><div class="hv" id="h-sys">Deep space</div><div class="hl" style="margin-top:5px;">Parked at</div><div class="hv" id="h-pl">—</div></div>
     <div id="hud-tr"><div class="hl">Flags</div><div class="hv" id="h-flags">0 / 0</div><div class="hl" style="margin-top:5px;">Progress</div><div class="hv" id="h-pct">0%</div></div>
     <div id="tip"><div class="tn" id="tip-n"></div><div class="ts" id="tip-s"></div></div>
+    <div id="sys-card"></div>
     <div id="timer-chip" onclick="openMission()" style="cursor:pointer;"><span id="tc-ico">🚀</span><span id="tc-time">25:00</span><button id="tc-abort" onclick="event.stopPropagation();abortMission()" title="Abort mission">✕</button></div>
   </div>
   <div id="bottom">
@@ -218,10 +235,10 @@ function rebuild(){
   SYSTEMS=(g.systems||[]).map((s,si)=>{
     const theme=STAR_THEMES[s.color]||STAR_THEMES[STAR_ORDER[si%STAR_ORDER.length]];
     const np=s.planets.length;
-    const sunR=Math.max(33,Math.min(63,32+np*3));
+    const sunR=Math.max(50,Math.min(95,48+np*4.5));
     let d=sunR+46;
     const planets=s.planets.map((p,pi)=>{
-      const r=p.size==='sm'?17:p.size==='lg'?30:23;
+      const r=p.size==='sm'?26:p.size==='lg'?45:35;
       const eff=p.ring?r*1.9:r;
       d+=eff+20;const dist=d;d+=eff+22;
       const base=p.color||PLANET_COLORS[pi%PLANET_COLORS.length];
@@ -321,16 +338,36 @@ function drawNebulae(){
 }
 function drawSun(sp,sys,t){
   const s=w2s(sp.x,sp.y),r=sys.sun.r*cam.zoom;
-  if(s.x<-r*5||s.x>CW+r*5||s.y<-r*5||s.y>CH+r*5)return;
-  const pulse=1+0.04*Math.sin(t*0.0018+sys.id),cr=r*pulse;
-  ctx.globalAlpha=0.1;ctx.fillStyle=sys.sun.corona;ctx.beginPath();ctx.arc(s.x,s.y,cr*4,0,Math.PI*2);ctx.fill();
-  ctx.globalAlpha=0.18;ctx.beginPath();ctx.arc(s.x,s.y,cr*2.6,0,Math.PI*2);ctx.fill();
-  ctx.globalAlpha=0.32;ctx.beginPath();ctx.arc(s.x,s.y,cr*1.7,0,Math.PI*2);ctx.fill();
+  if(s.x<-r*10||s.x>CW+r*10||s.y<-r*10||s.y>CH+r*10)return;
+  const pulse=1+0.05*Math.sin(t*0.0018+sys.id),cr=r*pulse;
+  // NMS-style layered glow
+  ctx.globalAlpha=0.025;ctx.fillStyle=sys.sun.corona;ctx.beginPath();ctx.arc(s.x,s.y,cr*10,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.05;ctx.beginPath();ctx.arc(s.x,s.y,cr*7,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.1;ctx.beginPath();ctx.arc(s.x,s.y,cr*4.8,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.18;ctx.beginPath();ctx.arc(s.x,s.y,cr*3.1,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.3;ctx.beginPath();ctx.arc(s.x,s.y,cr*2.1,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=0.48;ctx.beginPath();ctx.arc(s.x,s.y,cr*1.45,0,Math.PI*2);ctx.fill();
   ctx.globalAlpha=1;
-  const g=ctx.createRadialGradient(s.x-cr*0.32,s.y-cr*0.32,cr*0.08,s.x,s.y,cr);
-  g.addColorStop(0,sys.sun.core);g.addColorStop(0.45,sys.sun.color);g.addColorStop(1,sys.sun.corona);
+  // Animated spike rays
+  if(cr>4){
+    ctx.save();
+    const spikes=4,sl=cr*6*(1+0.1*Math.sin(t*0.002+sys.id));
+    for(let i=0;i<spikes;i++){
+      const ang=i*Math.PI/spikes+t*0.00022;
+      const gr=ctx.createLinearGradient(s.x+Math.cos(ang+Math.PI)*cr,s.y+Math.sin(ang+Math.PI)*cr,s.x+Math.cos(ang)*sl,s.y+Math.sin(ang)*sl);
+      gr.addColorStop(0,sys.sun.corona+'cc');gr.addColorStop(1,sys.sun.corona+'00');
+      ctx.strokeStyle=gr;ctx.lineWidth=Math.max(0.7,cr*0.09);ctx.globalAlpha=0.42;
+      ctx.beginPath();ctx.moveTo(s.x+Math.cos(ang+Math.PI)*cr,s.y+Math.sin(ang+Math.PI)*cr);ctx.lineTo(s.x+Math.cos(ang)*sl,s.y+Math.sin(ang)*sl);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(s.x+Math.cos(ang+Math.PI)*cr,s.y+Math.sin(ang+Math.PI)*cr);ctx.lineTo(s.x-Math.cos(ang)*sl,s.y-Math.sin(ang)*sl);ctx.stroke();
+    }
+    ctx.globalAlpha=1;ctx.restore();
+  }
+  // Sun body
+  const g=ctx.createRadialGradient(s.x-cr*0.28,s.y-cr*0.28,cr*0.05,s.x,s.y,cr);
+  g.addColorStop(0,sys.sun.core);g.addColorStop(0.5,sys.sun.color);g.addColorStop(1,sys.sun.corona);
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(s.x,s.y,cr,0,Math.PI*2);ctx.fill();
-  ctx.globalAlpha=0.55;ctx.fillStyle='rgba(255,255,255,0.85)';ctx.beginPath();ctx.arc(s.x-cr*0.3,s.y-cr*0.3,cr*0.16,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  // Bright core specular
+  ctx.globalAlpha=0.72;ctx.fillStyle='rgba(255,255,255,0.96)';ctx.beginPath();ctx.arc(s.x-cr*0.27,s.y-cr*0.27,cr*0.21,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   if(cam.zoom>0.09){ctx.fillStyle='rgba(200,215,255,0.78)';ctx.font=`500 ${Math.round(10.5*Math.min(1,cam.zoom/0.155))}px var(--font-sans)`;ctx.textAlign='center';ctx.fillText(sys.short,s.x,s.y+cr+13*cam.zoom/0.155);}
 }
 function drawOrbit(sp,dist){
@@ -342,13 +379,44 @@ function drawPlanet(si,pi){
   const pl=SYSTEMS[si].planets[pi],pp=planetPos(si,pi),s=w2s(pp.x,pp.y),r=pl.r*cam.zoom;
   if(s.x<-r*5||s.x>CW+r*5||s.y<-r*5||s.y>CH+r*5)return;
   const isHov=hovered&&hovered.si===si&&hovered.pi===pi,isPark=parked.sys===si&&parked.pl===pi;
-  if(isHov||isPark){ctx.globalAlpha=0.2;ctx.fillStyle=pl.surface;ctx.beginPath();ctx.arc(s.x,s.y,r*2.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
-  if(pl.ring){ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,0.26);ctx.strokeStyle=pl.color+'88';ctx.lineWidth=r*0.55;ctx.beginPath();ctx.arc(0,0,r*1.75,0,Math.PI*2);ctx.stroke();ctx.restore();}
-  const g=ctx.createRadialGradient(s.x-r*0.36,s.y-r*0.36,r*0.04,s.x,s.y,r);
-  g.addColorStop(0,lighten(pl.surface,0.48));g.addColorStop(0.42,pl.surface);g.addColorStop(1,darken(pl.color,0.38));
+  // Atmospheric glow halo
+  if(r>1.5){
+    const [pr,pg,pb]=hx(pl.surface);
+    const ag=ctx.createRadialGradient(s.x,s.y,r*0.85,s.x,s.y,r*2.6);
+    ag.addColorStop(0,`rgba(${pr},${pg},${pb},0.25)`);ag.addColorStop(1,`rgba(${pr},${pg},${pb},0)`);
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(s.x,s.y,r*2.6,0,Math.PI*2);ctx.fill();
+  }
+  if(isHov||isPark){ctx.globalAlpha=0.28;ctx.fillStyle=pl.surface;ctx.beginPath();ctx.arc(s.x,s.y,r*3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+  // Ring (behind planet body)
+  if(pl.ring){ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,0.28);ctx.strokeStyle=pl.color+'99';ctx.lineWidth=r*0.65;ctx.beginPath();ctx.arc(0,0,r*2,0,Math.PI*2);ctx.stroke();ctx.restore();}
+  // Planet body — rich gradient
+  const g=ctx.createRadialGradient(s.x-r*0.38,s.y-r*0.4,r*0.04,s.x+r*0.1,s.y+r*0.1,r);
+  g.addColorStop(0,lighten(pl.surface,0.6));g.addColorStop(0.28,lighten(pl.surface,0.18));g.addColorStop(0.62,pl.surface);g.addColorStop(0.85,darken(pl.color,0.32));g.addColorStop(1,darken(pl.color,0.72));
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;ctx.stroke();
-  ctx.globalAlpha=0.5;ctx.fillStyle='rgba(255,255,255,0.75)';ctx.beginPath();ctx.arc(s.x-r*0.32,s.y-r*0.32,r*0.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  // Surface bands (clipped to disc)
+  if(r>6){
+    ctx.save();ctx.beginPath();ctx.arc(s.x,s.y,r*0.98,0,Math.PI*2);ctx.clip();
+    ctx.globalAlpha=0.09;
+    for(let b=-0.6;b<=0.6;b+=0.25){
+      const by=s.y+r*b,bh=Math.sqrt(Math.max(0,r*r-(r*b)*(r*b)));
+      ctx.fillStyle=b%0.5===0?'rgba(255,255,255,0.7)':'rgba(0,0,0,0.35)';
+      ctx.fillRect(s.x-bh,by-r*0.11,bh*2,r*0.11);
+    }
+    ctx.restore();ctx.globalAlpha=1;
+  }
+  // Terminator shadow (dark limb on right side)
+  const shad=ctx.createRadialGradient(s.x+r*0.25,s.y+r*0.1,r*0.1,s.x+r*0.4,s.y+r*0.2,r*1.1);
+  shad.addColorStop(0,'rgba(0,0,0,0)');shad.addColorStop(0.5,'rgba(0,0,0,0)');shad.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=shad;ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
+  // Atmospheric rim light
+  if(r>2){
+    const [pr,pg,pb]=hx(pl.surface);
+    const rim=ctx.createRadialGradient(s.x,s.y,r*0.72,s.x,s.y,r*1.04);
+    rim.addColorStop(0,'rgba(0,0,0,0)');rim.addColorStop(0.62,'rgba(0,0,0,0)');rim.addColorStop(1,`rgba(${Math.min(255,pr+60)},${Math.min(255,pg+60)},${Math.min(255,pb+80)},0.55)`);
+    ctx.fillStyle=rim;ctx.beginPath();ctx.arc(s.x,s.y,r*1.04,0,Math.PI*2);ctx.fill();
+  }
+  // Specular highlight
+  ctx.globalAlpha=0.62;ctx.fillStyle='rgba(255,255,255,0.92)';ctx.beginPath();ctx.arc(s.x-r*0.34,s.y-r*0.34,r*0.23,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   if(flags[si][pi])drawFlag(s.x,s.y,r,pl.surface);
 }
 function drawFlag(sx,sy,r,color){
@@ -362,31 +430,24 @@ const SHIP_IMG=(()=>{const i=new Image();i.src='data:image/png;base64,iVBORw0KGg
 function drawFalcon(wx,wy,angle,moving){
   const s=w2s(wx,wy);
   if(s.x<-80||s.x>CW+80||s.y<-80||s.y>CH+80)return;
-  // size: scale with zoom, capped so it never becomes tiny or huge
   const size=Math.max(6,cam.zoom*46);
   const half=size/2;
-  ctx.save();
-  ctx.translate(s.x,s.y);
-  // image top = front of ship; angle 0 = moving right, so we need image top pointing right
-  // original angle: atan2(dy,dx)+PI/2, so pointing up = angle 0 means pointing up from atan2
-  // We rotate so image top (front) points in the direction of travel
-  ctx.rotate(angle);
-  // engine glow when moving
-  if(moving){
-    for(let i=0;i<4;i++){
-      ctx.globalAlpha=0.18-i*0.04;
-      ctx.fillStyle='rgba(180,130,60,1)';
-      ctx.beginPath();
-      ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);
-      ctx.fill();
-    }
-    ctx.globalAlpha=1;
-  }
-  if(SHIP_IMG.complete&&SHIP_IMG.naturalWidth){
-    ctx.drawImage(SHIP_IMG,-half,-half,size,size);
+  ctx.save();ctx.translate(s.x,s.y);ctx.rotate(angle);
+  if(cam.zoom<0.068){
+    // Zoomed-out mode: fixed-size arrow pointer so it's always visible
+    const ps=18;
+    if(moving){ctx.globalAlpha=0.3;ctx.fillStyle='#7eefc4';ctx.beginPath();ctx.ellipse(0,ps*0.7,ps*0.35,ps*0.14,0,0,Math.PI*2);ctx.fill();}
+    ctx.globalAlpha=moving?0.95:0.82;
+    ctx.fillStyle='#7eefc4';ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1.1;
+    ctx.beginPath();ctx.moveTo(0,-ps);ctx.lineTo(ps*0.52,ps*0.5);ctx.lineTo(0,ps*0.18);ctx.lineTo(-ps*0.52,ps*0.5);ctx.closePath();
+    ctx.fill();ctx.stroke();ctx.globalAlpha=1;
   }else{
-    // fallback circle while image loads
-    ctx.fillStyle='#c8a84a';ctx.beginPath();ctx.arc(0,0,half,0,Math.PI*2);ctx.fill();
+    if(moving){
+      for(let i=0;i<4;i++){ctx.globalAlpha=0.18-i*0.04;ctx.fillStyle='rgba(180,130,60,1)';ctx.beginPath();ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);ctx.fill();}
+      ctx.globalAlpha=1;
+    }
+    if(SHIP_IMG.complete&&SHIP_IMG.naturalWidth){ctx.drawImage(SHIP_IMG,-half,-half,size,size);}
+    else{ctx.fillStyle='#c8a84a';ctx.beginPath();ctx.arc(0,0,half,0,Math.PI*2);ctx.fill();}
   }
   ctx.restore();
 }
@@ -464,6 +525,39 @@ window.resetView=function(){cam={...homeCam};};
 window.clearFlags=function(){galaxy.systems.forEach(s=>s.planets.forEach(p=>p.done=false));saveData();rebuild();showPanel(parked.sys,parked.pl);};
 
 
+let sysCardSi=-1;
+window.closeSysCard=function(){document.getElementById('sys-card').style.display='none';sysCardSi=-1;};
+window.travelTo=function(si){
+  closeSysCard();
+  const sp=SYS_POS[si];
+  ship.tx=sp.x+28;ship.ty=sp.y-22;ship.moving=true;
+  parked.sys=si;parked.pl=-1;updateHUD();showPanel(si,-1);
+  cam.x=sp.x;cam.y=sp.y;
+};
+function showSysCard(si){
+  sysCardSi=si;
+  const sys=SYSTEMS[si],sp=SYS_POS[si];
+  const s=w2s(sp.x,sp.y);
+  const done=flags[si].filter(Boolean).length;
+  const pct=sys.planets.length?Math.round(done/sys.planets.length*100):0;
+  const card=document.getElementById('sys-card');
+  const cx=Math.min(Math.max(s.x-130,8),CW-278);
+  const cy=Math.min(Math.max(s.y-sys.sun.r*cam.zoom-160,8),CH-210);
+  card.style.cssText='display:block;position:absolute;left:'+cx+'px;top:'+cy+'px;';
+  card.innerHTML='<div class=\"sc-wrap\">'+
+    '<div style=\"display:flex;align-items:center;gap:9px;\">'+
+      '<span class=\"sc-dot\" style=\"background:'+sys.sun.color+';box-shadow:0 0 10px '+sys.sun.corona+'\"></span>'+
+      '<span class=\"sc-name\">'+esc(sys.name)+'</span>'+
+      (sys.lec?'<span style=\"font-size:11px;color:rgba(140,160,220,0.5);margin-left:auto;\">'+esc(sys.lec)+'</span>':'')+
+    '</div>'+
+    '<div class=\"sc-meta\">'+sys.planets.length+' planet'+(sys.planets.length!==1?'s':'')+' &nbsp;·&nbsp; '+done+'/'+sys.planets.length+' flagged &nbsp;·&nbsp; <span style=\"color:'+(pct===100?'#70f0a0':'rgba(160,200,255,0.85)')+';\">'+ pct+'% complete</span></div>'+
+    '<div class=\"sc-bar-wrap\"><div class=\"sc-bar\" style=\"width:'+pct+'%;background:'+(pct===100?'#50d878':sys.sun.corona)+'\"></div></div>'+
+    '<div class=\"sc-btns\">'+
+      '<button class=\"sc-close\" onclick=\"closeSysCard()\">✕ Close</button>'+
+      '<button class=\"sc-travel\" onclick=\"travelTo('+si+')\">⇒ Travel here</button>'+
+    '</div>'+
+  '</div>';
+}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity='0',2200);}
 
 /* ============================================================
@@ -598,7 +692,7 @@ canvas.addEventListener('mousemove',e=>{
   if(hit){
     canvas.style.cursor='pointer';
     document.getElementById('tip-n').textContent=hit.type==='planet'?SYSTEMS[hit.si].planets[hit.pi].n:SYSTEMS[hit.si].name;
-    document.getElementById('tip-s').textContent=hit.type==='planet'?(flags[hit.si][hit.pi]?'Flagged · click to fly here':'Click to fly here'):(SYSTEMS[hit.si].lec?'Click to explore · '+SYSTEMS[hit.si].lec:'Click to explore');
+    document.getElementById('tip-s').textContent=hit.type==='planet'?(flags[hit.si][hit.pi]?'Flagged · click to fly here':'Click to fly here'):(SYSTEMS[hit.si].lec?'Click to view · '+SYSTEMS[hit.si].lec:'Click to view system');
     tip.style.display='block';tip.style.left=Math.min(p.x+14,CW-220)+'px';tip.style.top=Math.max(p.y-48,8)+'px';
   }else{canvas.style.cursor='grab';tip.style.display='none';hovered=null;}
 });
@@ -609,8 +703,8 @@ canvas.addEventListener('mouseup',e=>{
     const w=s2w(p.x,p.y),hit=hitTest(w.x,w.y);
     if(hit){
       if(hit.type==='planet')flyTo(hit.si,hit.pi);
-      else{const sp=SYS_POS[hit.si];ship.tx=sp.x+28;ship.ty=sp.y-22;ship.moving=true;parked.sys=hit.si;parked.pl=-1;updateHUD();showPanel(hit.si,-1);cam.x=sp.x;cam.y=sp.y;}
-    }else{const w2=s2w(p.x,p.y);ship.tx=w2.x;ship.ty=w2.y;ship.moving=true;parked.sys=-1;parked.pl=-1;updateHUD();showPanel(-1,-1);}
+      else{showSysCard(hit.si);showPanel(hit.si,-1);}
+    }else{closeSysCard();parked.sys=-1;parked.pl=-1;updateHUD();showPanel(-1,-1);}
   }
   dragging=false;
 });
