@@ -1103,6 +1103,9 @@ function drawMiniGalaxy(cv,gal){
   const x=cv.getContext('2d'),cx=S/2,cy=S/2;
   let h=7;for(const ch of (gal.name||'g'))h=(h*31+ch.charCodeAt(0))&0x7fffffff;
   const rng=mkRng(h+13);
+  // per-galaxy glow color derived from name hash
+  const glowHues=[[255,220,130],[180,220,255],[255,160,200],[160,255,200],[220,180,255],[255,200,160],[160,240,255],[200,255,160]];
+  const gc=glowHues[h%glowHues.length];
   // deep space backdrop inside the disc
   const bgg=x.createRadialGradient(cx,cy,0,cx,cy,S/2);
   bgg.addColorStop(0,'rgba(14,22,52,0.95)');bgg.addColorStop(1,'rgba(3,6,16,0.98)');
@@ -1120,9 +1123,6 @@ function drawMiniGalaxy(cv,gal){
       x.fillRect(px,py,sz,sz);
     }
   }
-  // per-galaxy glow color derived from name hash
-  const glowHues=[[255,220,130],[180,220,255],[255,160,200],[160,255,200],[220,180,255],[255,200,160],[160,240,255],[200,255,160]];
-  const gc=glowHues[h%glowHues.length];
   // warm central bulge in galaxy's own color
   const bg2=x.createRadialGradient(0,0,0,0,0,S*0.2);
   bg2.addColorStop(0,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.95)');
