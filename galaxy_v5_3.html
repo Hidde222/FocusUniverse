@@ -563,14 +563,22 @@ function renderPlanetSprite(x,cx,cy,R,biome,rng){
       break;
     }
   }
-  // ── clean cartoon shading: bright highlight top-left, dark shadow bottom-right ──
-  // no noise, no gradients — just two big translucent circles
-  x.globalAlpha=0.32;x.fillStyle='rgba(255,255,255,0.85)';x.beginPath();x.arc(cx-R*0.32,cy-R*0.32,R*0.52,0,Math.PI*2);x.fill();
-  x.globalAlpha=0.38;x.fillStyle='rgba(0,0,0,0.9)';x.beginPath();x.arc(cx+R*0.28,cy+R*0.28,R*0.62,0,Math.PI*2);x.fill();
-  x.globalAlpha=1;
-  // thin crisp outline
-  x.strokeStyle='rgba(0,0,0,0.35)';x.lineWidth=R*0.022;x.beginPath();x.arc(cx,cy,R*0.988,0,Math.PI*2);x.stroke();
+  // ── soft cartoon shading: gradient highlight top-left, gradient shadow bottom-right ──
+  const lit=x.createRadialGradient(cx-R*0.38,cy-R*0.38,R*0.05,cx-R*0.38,cy-R*0.38,R*1.05);
+  lit.addColorStop(0,'rgba(255,255,252,0.34)');lit.addColorStop(0.45,'rgba(255,255,252,0.10)');lit.addColorStop(1,'rgba(255,255,252,0)');
+  x.fillStyle=lit;x.fillRect(cx-R,cy-R,R*2,R*2);
+  const shd=x.createRadialGradient(cx-R*0.2,cy-R*0.2,R*0.35,cx+R*0.22,cy+R*0.22,R*1.3);
+  shd.addColorStop(0,'rgba(0,0,0,0)');shd.addColorStop(0.55,'rgba(0,0,0,0.07)');shd.addColorStop(0.82,'rgba(0,0,0,0.26)');shd.addColorStop(1,'rgba(0,0,0,0.5)');
+  x.fillStyle=shd;x.fillRect(cx-R,cy-R,R*2,R*2);
+  // soft inner glow rim in the planet's own color
+  const rim=x.createRadialGradient(cx,cy,R*0.74,cx,cy,R);
+  rim.addColorStop(0,'rgba(0,0,0,0)');rim.addColorStop(0.7,rgba2(pal.hi,0.10));rim.addColorStop(1,rgba2(pal.hi,0.55));
+  x.fillStyle=rim;x.beginPath();x.arc(cx,cy,R,0,Math.PI*2);x.fill();
   x.restore();
+  // outer halo glow baked into the sprite (outside the clip, fades out softly)
+  const halo=x.createRadialGradient(cx,cy,R*0.92,cx,cy,R*1.13);
+  halo.addColorStop(0,rgba2(pal.hi,0.4));halo.addColorStop(0.45,rgba2(pal.base,0.18));halo.addColorStop(1,rgba2(pal.base,0));
+  x.fillStyle=halo;x.beginPath();x.arc(cx,cy,R*1.13,0,Math.PI*2);x.arc(cx,cy,R*0.92,0,Math.PI*2,true);x.fill();
 }
 
 function drawPlanet(si,pi){
@@ -580,9 +588,9 @@ function drawPlanet(si,pi){
   // Atmospheric glow halo tinted by biome color
   if(r>1.5){
     const [pr2,pg2,pb2]=hx(pl.surface);
-    const ag=ctx.createRadialGradient(s.x,s.y,r*0.85,s.x,s.y,r*2.4);
-    ag.addColorStop(0,'rgba('+pr2+','+pg2+','+pb2+',0.22)');ag.addColorStop(1,'rgba('+pr2+','+pg2+','+pb2+',0)');
-    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(s.x,s.y,r*2.4,0,Math.PI*2);ctx.fill();
+    const ag=ctx.createRadialGradient(s.x,s.y,r*0.8,s.x,s.y,r*2.7);
+    ag.addColorStop(0,'rgba('+pr2+','+pg2+','+pb2+',0.34)');ag.addColorStop(0.45,'rgba('+pr2+','+pg2+','+pb2+',0.12)');ag.addColorStop(1,'rgba('+pr2+','+pg2+','+pb2+',0)');
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(s.x,s.y,r*2.7,0,Math.PI*2);ctx.fill();
   }
   if(isHov||isPark){ctx.globalAlpha=0.28;ctx.fillStyle=pl.surface;ctx.beginPath();ctx.arc(s.x,s.y,r*3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
   // Ring (behind planet body)
