@@ -206,10 +206,10 @@ function layout(systems){
     if(i===0){pos.push({x:cx,y:cy});placed.push({x:cx,y:cy,R});return;}
     let found=null,step=0;
     while(!found&&step<3000){
-      const t=i+step*0.45,ang=t*golden,rad=150*Math.sqrt(t+1);
+      const t=i+step*0.45,ang=t*golden,rad=202*Math.sqrt(t+1);
       const x=cx+rad*Math.cos(ang),y=cy+rad*Math.sin(ang);
       let ok=true;
-      for(const pc of placed){const dx=pc.x-x,dy=pc.y-y;if(Math.hypot(dx,dy)<pc.R+R+45){ok=false;break;}}
+      for(const pc of placed){const dx=pc.x-x,dy=pc.y-y;if(Math.hypot(dx,dy)<pc.R+R+61){ok=false;break;}}
       if(ok)found={x,y};else step++;
     }
     if(!found)found={x:cx+i*520,y:cy};
