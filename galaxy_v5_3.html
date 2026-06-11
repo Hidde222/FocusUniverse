@@ -138,7 +138,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 #tc-ico{font-size:13px;}
 #tc-time{font-size:14px;font-weight:600;color:#dce6ff;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
 #timer-chip.fuel #tc-time{color:#ffd9a8;}
-#gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:radial-gradient(ellipse at 50% 36%,rgba(18,30,72,0.6),rgba(2,6,18,0.97) 72%);}
+#gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:rgba(3,6,18,0.97);backdrop-filter:blur(6px);}
 #gal-select .gs-title{font-size:21px;font-weight:500;color:#c8d4f0;letter-spacing:0.22em;text-transform:uppercase;}
 #gal-select .gs-sub{font-size:12.5px;color:rgba(150,170,225,0.55);margin-top:-26px;}
 #gs-carousel{display:flex;align-items:center;gap:18px;width:100%;}
@@ -148,8 +148,8 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .gs-arrow:disabled{opacity:0.22;cursor:default;}
 .g-card{display:flex;flex-direction:column;align-items:center;gap:11px;cursor:pointer;transition:transform .18s ease;}
 .g-card:hover{transform:scale(1.08);}
-.g-card canvas,.g-add-circle{width:172px;height:172px;border-radius:50%;}
-.g-card canvas{box-shadow:0 0 34px rgba(90,130,255,0.13);transition:box-shadow .18s ease;}
+.g-card canvas,.g-add-circle{width:172px;height:172px;}
+.g-card canvas{transition:filter .22s ease;}
 .g-card:hover canvas{box-shadow:0 0 52px rgba(130,170,255,0.4);}
 .g-name{font-size:15.5px;color:#dce6ff;text-align:center;max-width:190px;}
 .g-sub{font-size:11.5px;color:rgba(150,170,225,0.6);margin-top:-6px;}
@@ -215,7 +215,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
     <div class="gs-sub">Every galaxy is a study course — pick one or create a new one</div>
     <div id="gs-carousel">
       <button class="gs-arrow" id="gs-prev">&#8592;</button>
-      <div style="overflow:hidden;flex:1;"><div id="gal-cards"></div></div>
+      <div id="gs-overflow" style="overflow:hidden;flex:1;display:flex;justify-content:center;"><div id="gal-cards"></div></div>
       <button class="gs-arrow" id="gs-next">&#8594;</button>
     </div>
   </div>
@@ -1142,15 +1142,40 @@ function drawMiniGalaxy(cv,gal){
     x.fillStyle='#fff';x.beginPath();x.arc(px,py,1.8,0,Math.PI*2);x.fill();
   });
   x.restore();
-  // thin rim
-  x.strokeStyle='rgba(110,140,220,0.22)';x.lineWidth=1.5;
+  // soft colored glow ring drawn outside the disc (transparent corners let it bleed naturally)
+  const gring=x.createRadialGradient(cx,cy,S/2*0.88,cx,cy,S/2*1.08);
+  gring.addColorStop(0,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.55)');
+  gring.addColorStop(0.5,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.22)');
+  gring.addColorStop(1,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0)');
+  x.fillStyle=gring;x.beginPath();x.arc(cx,cy,S/2*1.08,0,Math.PI*2);x.fill();
+  // thin crisp rim in the galaxy's own color
+  x.strokeStyle='rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.38)';x.lineWidth=1.5;
   x.beginPath();x.arc(cx,cy,S/2-1,0,Math.PI*2);x.stroke();
 }
 
 let gsOffset=0;
 function gsCardW(){const c=document.querySelector('.g-card');return c?(c.offsetWidth+44):216;}
 function gsMaxOffset(){const wrap=document.getElementById('gal-cards');const outer=document.querySelector('#gs-carousel>div');if(!wrap||!outer)return 0;return Math.max(0,wrap.scrollWidth-outer.offsetWidth);}
-function gsScrollTo(off){const cards=document.getElementById('gal-cards');gsOffset=Math.max(0,Math.min(off,gsMaxOffset()));cards.style.transform='translateX(-'+gsOffset+'px)';document.getElementById('gs-prev').disabled=gsOffset<=0;document.getElementById('gs-next').disabled=gsOffset>=gsMaxOffset();}
+function gsScrollTo(off){
+  const cards=document.getElementById('gal-cards');
+  const ow=document.getElementById('gs-overflow');
+  const max=gsMaxOffset();
+  if(max<=0){
+    // all cards fit — center them, hide arrows
+    gsOffset=0;cards.style.transform='none';
+    ow.style.justifyContent='center';
+    document.getElementById('gs-prev').style.visibility='hidden';
+    document.getElementById('gs-next').style.visibility='hidden';
+  } else {
+    gsOffset=Math.max(0,Math.min(off,max));
+    cards.style.transform='translateX(-'+gsOffset+'px)';
+    ow.style.justifyContent='flex-start';
+    document.getElementById('gs-prev').style.visibility='visible';
+    document.getElementById('gs-next').style.visibility='visible';
+    document.getElementById('gs-prev').disabled=gsOffset<=0;
+    document.getElementById('gs-next').disabled=gsOffset>=max;
+  }
+}
 
 function buildGsCards(){
   const wrap=document.getElementById('gal-cards');wrap.innerHTML='';
@@ -1170,6 +1195,11 @@ function buildGsCards(){
     const delBtn=document.createElement('button');delBtn.className='pnl-btn';delBtn.textContent='✕';delBtn.title='Delete';delBtn.style.cssText='border-color:rgba(200,80,80,0.4);color:rgba(220,130,130,0.85);';
     delBtn.onclick=e=>{e.stopPropagation();if(!confirm('Delete galaxy "'+( g.name||'Unnamed')+'"? This cannot be undone.'))return;hub.galaxies.splice(i,1);if(hub.current>=hub.galaxies.length)hub.current=hub.galaxies.length-1;if(i<=hub.current&&hub.current>0)hub.current--;saveData();buildGsCards();gsScrollTo(gsOffset);};
     actions.append(renBtn,delBtn);
+    // per-galaxy glow filter using same hash as drawMiniGalaxy
+    let gh=7;for(const ch of (g.name||'g'))gh=(gh*31+ch.charCodeAt(0))&0x7fffffff;
+    const glowH=[[255,220,130],[180,220,255],[255,160,200],[160,255,200],[220,180,255],[255,200,160],[160,240,255],[200,255,160]];
+    const gc2=glowH[gh%glowH.length];
+    cv.style.filter='drop-shadow(0 0 22px rgba('+gc2[0]+','+gc2[1]+','+gc2[2]+',0.65))';
     card.append(cv,nm,sub,actions);
     card.onclick=()=>selectGalaxy(i);
     wrap.appendChild(card);
