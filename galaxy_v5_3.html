@@ -138,7 +138,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 #tc-ico{font-size:13px;}
 #tc-time{font-size:14px;font-weight:600;color:#dce6ff;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
 #timer-chip.fuel #tc-time{color:#ffd9a8;}
-#gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:radial-gradient(ellipse at 50% 36%,rgb(16,26,62),rgb(2,6,18) 72%);}
+#gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:radial-gradient(ellipse at 50% 36%,rgba(18,30,72,0.6),rgba(2,6,18,0.92) 72%);backdrop-filter:blur(2px);}
 #gal-select .gs-title{font-size:21px;font-weight:500;color:#c8d4f0;letter-spacing:0.22em;text-transform:uppercase;}
 #gal-select .gs-sub{font-size:12.5px;color:rgba(150,170,225,0.55);margin-top:-26px;}
 #gs-carousel{display:flex;align-items:center;gap:18px;width:100%;}
@@ -151,7 +151,6 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .g-card canvas{width:236px;height:236px;margin:-32px;}
 .g-add-circle{width:172px;height:172px;border-radius:50%;}
 
-.g-card:hover canvas{box-shadow:0 0 52px rgba(130,170,255,0.4);}
 .g-name{font-size:15.5px;color:#dce6ff;text-align:center;max-width:190px;}
 .g-sub{font-size:11.5px;color:rgba(150,170,225,0.6);margin-top:-6px;}
 .g-add-circle{border:1.5px dashed rgba(120,150,220,0.45);display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:200;color:rgba(150,180,240,0.65);transition:border-color .18s,color .18s;}
@@ -1108,12 +1107,6 @@ function drawMiniGalaxy(cv,gal){
   // per-galaxy glow color derived from name hash
   const glowHues=[[255,220,130],[180,220,255],[255,160,200],[160,255,200],[220,180,255],[255,200,160],[160,240,255],[200,255,160]];
   const gc=glowHues[h%glowHues.length];
-  // soft colored halo around the disc — fades fully inside the canvas, never clipped
-  const halo=x.createRadialGradient(cx,cy,DR*0.85,cx,cy,S/2);
-  halo.addColorStop(0,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.30)');
-  halo.addColorStop(0.4,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.12)');
-  halo.addColorStop(1,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0)');
-  x.fillStyle=halo;x.beginPath();x.arc(cx,cy,S/2,0,Math.PI*2);x.fill();
   // deep space backdrop inside the disc (original look)
   const bgg=x.createRadialGradient(cx,cy,0,cx,cy,DR);
   bgg.addColorStop(0,'rgba(14,22,52,0.97)');bgg.addColorStop(1,'rgba(3,6,16,0.99)');
