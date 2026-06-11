@@ -414,7 +414,7 @@ const BIOME_PAL={
   alien: {base:'#7a4fa8',lo:'#3a2158',hi:'#c08ae0',extra:'#d84fa0'}
 };
 function getBiome(name,col,pi,si){let h=0;const k=name+col+(pi*127)+(si*31);for(let i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))&0x7fffffff;return BIOMES[h%BIOMES.length];}
-function hx2(hex){let c=hex.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];return[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
+function hx2(col){if(col.startsWith('rgb')){const m=col.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);return[+m[1],+m[2],+m[3]];}let c=col.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];return[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
 function shiftHex(hex,dr,dg,db){const[r,g,b]=hx2(hex);const cl=v=>Math.max(0,Math.min(255,Math.round(v)));return'rgb('+cl(r+dr)+','+cl(g+dg)+','+cl(b+db)+')';}
 function rgba2(hex,a){const[r,g,b]=hx2(hex);return'rgba('+r+','+g+','+b+','+a+')';}
 
@@ -426,7 +426,9 @@ function planetSprite(si,pi){
   if(planetSprites[key])return planetSprites[key];
   const S=360,R=132,seed=((si*997+pi*31)^(pl.n.length*53+pl.n.charCodeAt(0)*7))&0x7fffffff;
   const c=document.createElement('canvas');c.width=S;c.height=S;
-  renderPlanetSprite(c.getContext('2d'),S/2,S/2,R,pl.biome||'rocky',mkRng(seed));
+  const g2=c.getContext('2d');
+  try{renderPlanetSprite(g2,S/2,S/2,R,pl.biome||'rocky',mkRng(seed));}
+  catch(e){g2.setTransform(1,0,0,1,0,0);g2.filter='none';g2.globalAlpha=1;g2.fillStyle=pl.surface||'#888';g2.beginPath();g2.arc(S/2,S/2,R,0,Math.PI*2);g2.fill();}
   planetSprites[key]=c;return c;
 }
 
