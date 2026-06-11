@@ -141,7 +141,11 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 #gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:radial-gradient(ellipse at 50% 36%,rgba(18,30,72,0.6),rgba(2,6,18,0.97) 72%);}
 #gal-select .gs-title{font-size:21px;font-weight:500;color:#c8d4f0;letter-spacing:0.22em;text-transform:uppercase;}
 #gal-select .gs-sub{font-size:12.5px;color:rgba(150,170,225,0.55);margin-top:-26px;}
-#gal-cards{display:flex;gap:44px;flex-wrap:wrap;justify-content:center;max-width:88%;}
+#gs-carousel{display:flex;align-items:center;gap:18px;width:100%;}
+#gal-cards{display:flex;gap:44px;align-items:flex-start;transition:transform .38s cubic-bezier(.4,0,.2,1);will-change:transform;}
+.gs-arrow{background:rgba(18,30,80,0.7);border:1px solid rgba(120,150,220,0.35);color:rgba(200,220,255,0.85);width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.gs-arrow:hover{background:rgba(40,70,160,0.8);}
+.gs-arrow:disabled{opacity:0.22;cursor:default;}
 .g-card{display:flex;flex-direction:column;align-items:center;gap:11px;cursor:pointer;transition:transform .18s ease;}
 .g-card:hover{transform:scale(1.08);}
 .g-card canvas,.g-add-circle{width:172px;height:172px;border-radius:50%;}
@@ -209,7 +213,11 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
   <div id="gal-select">
     <div class="gs-title">Choose your galaxy</div>
     <div class="gs-sub">Every galaxy is a study course — pick one or create a new one</div>
-    <div id="gal-cards"></div>
+    <div id="gs-carousel">
+      <button class="gs-arrow" id="gs-prev">&#8592;</button>
+      <div style="overflow:hidden;flex:1;"><div id="gal-cards"></div></div>
+      <button class="gs-arrow" id="gs-next">&#8594;</button>
+    </div>
   </div>
 
   <div id="toast"></div>
@@ -282,7 +290,7 @@ function rebuild(){
     const sunR=Math.max(50,Math.min(95,48+np*4.5));
     let d=sunR+46;
     const planets=s.planets.map((p,pi)=>{
-      const r=p.size==='sm'?26:p.size==='lg'?45:35;
+      const r=p.size==='sm'?34:p.size==='lg'?58:45;
       const eff=p.ring?r*1.9:r;
       d+=eff+20;const dist=d;d+=eff+22;
       const seedCol=p.color||PLANET_COLORS[pi%PLANET_COLORS.length];
@@ -341,7 +349,7 @@ function resize(){const wrap=document.getElementById('canvaswrap');CW=wrap.clien
 
 let cam={x:2000,y:2100,zoom:0.12};
 let dragging=false,dragLast={x:0,y:0},clickStart={x:0,y:0};
-let ship={wx:2000,wy:2100,tx:2000,ty:2100,angle:0.4,moving:false,journeyDist:0};
+let ship={wx:2000,wy:2100,tx:2000,ty:2100,angle:0.4,moving:false,journeyDist:0,journeyTravelled:0};
 let camAnim={active:false,sx:0,sy:0,sz:0,ex:0,ey:0,ez:0,t:0,dur:60,onDone:null};
 let parked={sys:-1,pl:-1};
 let hovered=null,tick=0;
@@ -655,7 +663,7 @@ const SHIP_IMG=(()=>{const i=new Image();i.src='data:image/png;base64,iVBORw0KGg
 function drawFalcon(wx,wy,angle,moving){
   const s=w2s(wx,wy);
   if(s.x<-80||s.x>CW+80||s.y<-80||s.y>CH+80)return;
-  const size=Math.max(10,cam.zoom*86);
+  const size=Math.max(12,cam.zoom*108);
   const half=size/2;
   ctx.save();ctx.translate(s.x,s.y);ctx.rotate(angle);
   if(cam.zoom<0.14){
@@ -1107,14 +1115,19 @@ function drawMiniGalaxy(cv,gal){
     for(let i=0;i<340;i++){
       const t=rng(),ang=a*Math.PI+t*3.8+(rng()-0.5)*0.55,rad=16+t*S*0.46+(rng()-0.5)*20;
       const px=Math.cos(ang)*rad,py=Math.sin(ang)*rad,al=(1-t)*0.5+0.07;
-      x.fillStyle=rng()<0.16?'rgba(195,215,255,'+al+')':'rgba(135,155,225,'+(al*0.5)+')';
+      x.fillStyle=rng()<0.16?'rgba('+gc[0]+','+gc[1]+','+gc[2]+','+al+')':'rgba('+gc[0]+','+gc[1]+','+gc[2]+','+(al*0.45)+')';
       const sz=rng()<0.1?2:1.1;
       x.fillRect(px,py,sz,sz);
     }
   }
-  // warm central bulge
+  // per-galaxy glow color derived from name hash
+  const glowHues=[[255,220,130],[180,220,255],[255,160,200],[160,255,200],[220,180,255],[255,200,160],[160,240,255],[200,255,160]];
+  const gc=glowHues[h%glowHues.length];
+  // warm central bulge in galaxy's own color
   const bg2=x.createRadialGradient(0,0,0,0,0,S*0.2);
-  bg2.addColorStop(0,'rgba(255,246,218,0.95)');bg2.addColorStop(0.4,'rgba(255,226,170,0.45)');bg2.addColorStop(1,'rgba(255,212,140,0)');
+  bg2.addColorStop(0,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.95)');
+  bg2.addColorStop(0.4,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0.42)');
+  bg2.addColorStop(1,'rgba('+gc[0]+','+gc[1]+','+gc[2]+',0)');
   x.fillStyle=bg2;x.beginPath();x.arc(0,0,S*0.2,0,Math.PI*2);x.fill();
   // each real solar system = a glowing star on the arms, colored by its sun
   const n=gal.systems.length;
@@ -1134,8 +1147,12 @@ function drawMiniGalaxy(cv,gal){
   x.beginPath();x.arc(cx,cy,S/2-1,0,Math.PI*2);x.stroke();
 }
 
-function openGalaxySelect(){
-  closeSysCard();
+let gsOffset=0;
+function gsCardW(){const c=document.querySelector('.g-card');return c?(c.offsetWidth+44):216;}
+function gsMaxOffset(){const wrap=document.getElementById('gal-cards');const outer=document.querySelector('#gs-carousel>div');if(!wrap||!outer)return 0;return Math.max(0,wrap.scrollWidth-outer.offsetWidth);}
+function gsScrollTo(off){const cards=document.getElementById('gal-cards');gsOffset=Math.max(0,Math.min(off,gsMaxOffset()));cards.style.transform='translateX(-'+gsOffset+'px)';document.getElementById('gs-prev').disabled=gsOffset<=0;document.getElementById('gs-next').disabled=gsOffset>=gsMaxOffset();}
+
+function buildGsCards(){
   const wrap=document.getElementById('gal-cards');wrap.innerHTML='';
   hub.galaxies.forEach((g,i)=>{
     const card=document.createElement('div');card.className='g-card';
@@ -1145,7 +1162,15 @@ function openGalaxySelect(){
     const done=g.systems.reduce((a,s)=>a+s.planets.filter(p=>p.done).length,0);
     const sub=document.createElement('div');sub.className='g-sub';
     sub.textContent=g.systems.length+(g.systems.length===1?' system':' systems')+' · '+(tot?Math.round(done/tot*100):0)+'% complete';
-    card.append(cv,nm,sub);
+    // rename / delete row
+    const actions=document.createElement('div');
+    actions.style.cssText='display:flex;gap:6px;margin-top:-2px;';
+    const renBtn=document.createElement('button');renBtn.className='pnl-btn';renBtn.textContent='✎';renBtn.title='Rename';
+    renBtn.onclick=e=>{e.stopPropagation();const n=prompt('Rename galaxy:',g.name||'');if(n===null)return;hub.galaxies[i].name=(n||'').trim()||g.name;saveData();buildGsCards();gsScrollTo(gsOffset);};
+    const delBtn=document.createElement('button');delBtn.className='pnl-btn';delBtn.textContent='✕';delBtn.title='Delete';delBtn.style.cssText='border-color:rgba(200,80,80,0.4);color:rgba(220,130,130,0.85);';
+    delBtn.onclick=e=>{e.stopPropagation();if(!confirm('Delete galaxy "'+( g.name||'Unnamed')+'"? This cannot be undone.'))return;hub.galaxies.splice(i,1);if(hub.current>=hub.galaxies.length)hub.current=hub.galaxies.length-1;if(i<=hub.current&&hub.current>0)hub.current--;saveData();buildGsCards();gsScrollTo(gsOffset);};
+    actions.append(renBtn,delBtn);
+    card.append(cv,nm,sub,actions);
     card.onclick=()=>selectGalaxy(i);
     wrap.appendChild(card);
   });
@@ -1153,9 +1178,17 @@ function openGalaxySelect(){
   add.innerHTML='<div class="g-add-circle">+</div><div class="g-name">New galaxy</div><div class="g-sub">Add a study course</div>';
   add.onclick=addGalaxy;
   wrap.appendChild(add);
+  setTimeout(()=>gsScrollTo(gsOffset),0);
+}
+
+function openGalaxySelect(){
+  closeSysCard();gsOffset=0;
+  buildGsCards();
   document.getElementById('gal-select').style.display='flex';
 }
 window.openGalaxySelect=openGalaxySelect;
+document.getElementById('gs-prev').onclick=()=>gsScrollTo(gsOffset-gsCardW());
+document.getElementById('gs-next').onclick=()=>gsScrollTo(gsOffset+gsCardW());
 
 function addGalaxy(){
   const name=prompt('Name your new galaxy (e.g. the course name):','');
@@ -1167,7 +1200,9 @@ function addGalaxy(){
 
 function selectGalaxy(i){
   hub.current=i;galaxy=hub.galaxies[i];saveData();
-  document.getElementById('gal-select').style.display='none';
+  const el=document.getElementById('gal-select');
+  el.style.transition='opacity .32s';el.style.opacity='0';
+  setTimeout(()=>{el.style.display='none';el.style.opacity='';el.style.transition='';},320);
   parked={sys:-1,pl:-1};camAnim.active=false;
   rebuild();
   if(!galaxy.systems.length){cam.x=homeCam.x;cam.y=homeCam.y;cam.zoom=homeCam.zoom;showWelcome();}
@@ -1193,7 +1228,19 @@ function loop(t){
   drawStarLayers(t);drawNebulae();
   SYSTEMS.forEach((sys,si)=>{const sp=SYS_POS[si];sys.planets.forEach((_,pi)=>drawOrbit(sp,SYSTEMS[si].planets[pi].dist));drawSun(sp,sys,t);sys.planets.forEach((_,pi)=>drawPlanet(si,pi));});
   if(camAnim.active){camAnim.t++;const p=Math.min(1,camAnim.t/camAnim.dur),ep=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;cam.x=camAnim.sx+(camAnim.ex-camAnim.sx)*ep;cam.y=camAnim.sy+(camAnim.ey-camAnim.sy)*ep;cam.zoom=camAnim.sz+(camAnim.ez-camAnim.sz)*ep;if(camAnim.t>=camAnim.dur){camAnim.active=false;if(camAnim.onDone){camAnim.onDone();camAnim.onDone=null;}}}
-  if(ship.moving){const dx=ship.tx-ship.wx,dy=ship.ty-ship.wy,dist=Math.hypot(dx,dy);if(dist>4){const spd=Math.max(4,Math.min(28,ship.journeyDist*0.009+dist*0.048));ship.wx+=dx/dist*spd;ship.wy+=dy/dist*spd;ship.angle=Math.atan2(dy,dx)+Math.PI/2;}else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;}}
+  if(ship.moving){
+    const dx=ship.tx-ship.wx,dy=ship.ty-ship.wy,dist=Math.hypot(dx,dy);
+    if(dist>3){
+      const jd=Math.max(1,ship.journeyDist);
+      const travelled=jd-dist;
+      const prog=Math.min(1,travelled/jd);
+      // ease-in first 25%, full speed mid, ease-out last 20%
+      const curve=prog<0.25?prog/0.25:prog>0.80?(1-prog)/0.20:1;
+      const spd=Math.max(2,Math.min(32,jd*0.012)*curve+2);
+      ship.wx+=dx/dist*spd;ship.wy+=dy/dist*spd;
+      ship.angle=Math.atan2(dy,dx)+Math.PI/2;
+    }else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;}
+  }
   drawFalcon(ship.wx,ship.wy,ship.angle,ship.moving);
   requestAnimationFrame(loop);
 }
