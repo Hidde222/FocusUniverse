@@ -143,9 +143,12 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 #gal-select{position:absolute;inset:0;z-index:55;display:none;flex-direction:column;align-items:center;justify-content:center;gap:36px;background:radial-gradient(ellipse at 50% 36%,rgba(18,30,72,0.6),rgba(2,6,18,0.92) 72%);backdrop-filter:blur(2px);}
 #gal-select .gs-title{font-size:21px;font-weight:500;color:#c8d4f0;letter-spacing:0.22em;text-transform:uppercase;}
 #gal-select .gs-sub{font-size:12.5px;color:rgba(150,170,225,0.55);margin-top:-26px;}
-#ship-sel{position:absolute;top:26px;right:30px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
-#ship-sel .ss-label{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(150,170,225,0.6);}
-#ship-sel .ss-row{display:flex;gap:10px;}
+#ship-sel{position:absolute;top:26px;right:30px;display:flex;flex-direction:column;gap:10px;align-items:flex-end;z-index:5;}
+#hangar-btn{padding:9px 18px;border-radius:12px;border:1px solid rgba(140,160,220,0.28);background:rgba(16,24,52,0.55);backdrop-filter:blur(8px);color:rgba(200,212,240,0.85);font-family:inherit;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;transition:border-color 0.15s,color 0.15s;}
+#hangar-btn:hover{border-color:rgba(170,190,255,0.5);color:#e0eaff;}
+#hangar-pop{display:none;flex-direction:column;gap:8px;align-items:center;padding:14px 14px 12px;border-radius:18px;border:1px solid rgba(140,160,220,0.22);background:rgba(12,18,42,0.72);backdrop-filter:blur(10px);}
+#hangar-pop .ss-label{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(150,170,225,0.6);}
+#hangar-pop .ss-row{display:flex;gap:10px;}
 .ss-opt{width:78px;padding:8px 6px 7px;border-radius:14px;border:1px solid rgba(140,160,220,0.18);background:rgba(16,24,52,0.45);backdrop-filter:blur(6px);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform 0.15s,border-color 0.15s;color:rgba(190,205,240,0.75);font-size:10.5px;font-family:inherit;letter-spacing:0.06em;}
 .ss-opt:hover{transform:translateY(-2px);border-color:rgba(170,190,255,0.4);}
 .ss-opt.sel{border-color:rgba(126,239,196,0.75);color:#aef0d4;background:rgba(20,42,40,0.5);}
@@ -223,8 +226,11 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
   <!-- galaxy selector (startup profile screen) -->
   <div id="gal-select">
     <div id="ship-sel">
-      <div class="ss-label">Your ship</div>
-      <div class="ss-row" id="ss-row"></div>
+      <button id="hangar-btn" onclick="toggleHangar()">&#9881; Hangar</button>
+      <div id="hangar-pop">
+        <div class="ss-label">Select your ship</div>
+        <div class="ss-row" id="ss-row"></div>
+      </div>
     </div>
     <div class="gs-title">Choose your galaxy</div>
     <div class="gs-sub">Every galaxy is a study course — pick one or create a new one</div>
@@ -756,6 +762,13 @@ function shipSprite(idx){
   _shipSprites[idx]=cv;
   return cv;
 }
+window.toggleHangar=function(){
+  const p=document.getElementById('hangar-pop');
+  const open=p.style.display==='flex';
+  p.style.display=open?'none':'flex';
+  if(!open)renderShipPicker();
+  sfx('click');
+};
 function renderShipPicker(){
   const row=document.getElementById('ss-row');if(!row)return;
   row.innerHTML='';
@@ -994,9 +1007,9 @@ function playBiomeMusic(biome){
   const cfg=BIOME_MUSIC[biome]||BIOME_MUSIC.rocky;
   biomePlaying=true;currentBiome=biome;
   const t=AC.currentTime+0.2;  // slight delay after fade-out
-  // fade ambient down a bit so biome music sits on top
+  // universe music stops entirely while at a planet — biome music only
   musicBus.gain.cancelScheduledValues(t);
-  musicBus.gain.setTargetAtTime(musicOn?MUSIC_LEVEL*0.35:0,t,0.9);
+  musicBus.gain.setTargetAtTime(0,t,0.9);
   // biome bus fade in
   biomeBus.gain.cancelScheduledValues(t);
   biomeBus.gain.setTargetAtTime(0.55,t+0.3,1.0);
@@ -1067,7 +1080,12 @@ function leavePlanet(){
 function toggleMusic(){
   initAC();if(AC.state==='suspended')AC.resume();
   musicOn=!musicOn;
-  if(musicOn){startMusic();if(currentBiome)playBiomeMusic(currentBiome);}else{stopMusic();stopBiomeMusic(true);}
+  if(musicOn){
+    startMusic();
+    if(parked.pl>=0&&parked.sys>=0&&SYSTEMS[parked.sys]&&SYSTEMS[parked.sys].planets[parked.pl]&&!ship.moving){
+      playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
+    }
+  }else{stopMusic();stopBiomeMusic(true);}
   document.getElementById('btn-music').textContent=musicOn?'♪ Music':'♪ Off';
 }
 function toggleSfx(){
@@ -1134,7 +1152,15 @@ function sfx(type){
 }
 
 // First interaction unlocks audio; startMusic guards itself so this is safe per-click
-function resumeAC(){initAC();if(AC.state==='suspended')AC.resume();if(musicOn&&!musicPlaying)startMusic();}
+function resumeAC(){
+  initAC();if(AC.state==='suspended')AC.resume();
+  if(musicOn&&!musicPlaying){
+    startMusic();
+    if(parked.pl>=0&&parked.sys>=0&&!ship.moving&&SYSTEMS[parked.sys]&&SYSTEMS[parked.sys].planets[parked.pl]){
+      playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
+    }
+  }
+}
 
 /* ============================================================
    ACTIONS
@@ -1599,7 +1625,7 @@ function buildGsCards(){
 function openGalaxySelect(){
   closeSysCard();gsOffset=0;
   buildGsCards();
-  renderShipPicker();
+  const hp=document.getElementById('hangar-pop');if(hp)hp.style.display='none';
   document.getElementById('gal-select').style.display='flex';
 }
 window.openGalaxySelect=openGalaxySelect;
