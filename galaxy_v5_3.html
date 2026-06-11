@@ -180,10 +180,10 @@ function rebuild(){
   SYSTEMS=(g.systems||[]).map((s,si)=>{
     const theme=STAR_THEMES[s.color]||STAR_THEMES[STAR_ORDER[si%STAR_ORDER.length]];
     const np=s.planets.length;
-    const sunR=Math.max(18,Math.min(34,17+np*1.7));
+    const sunR=Math.max(22,Math.min(42,21+np*2.1));
     let d=sunR+46;
     const planets=s.planets.map((p,pi)=>{
-      const r=p.size==='sm'?8:p.size==='lg'?15:11;
+      const r=p.size==='sm'?11:p.size==='lg'?20:15;
       const eff=p.ring?r*1.9:r;
       d+=eff+20;const dist=d;d+=eff+22;
       const base=p.color||PLANET_COLORS[pi%PLANET_COLORS.length];
