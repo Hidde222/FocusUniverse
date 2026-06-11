@@ -762,92 +762,104 @@ function hexToRgb(hex){let c=hex.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1
 /* ============================================================
    AUDIO — ambient generative music + sound effects
    ============================================================ */
-let AC=null,masterVol=null,sfxVol=null,musicVol=null,reverbNode=null,musicOn=true,sfxOn=true;
-let _arpTimer=null;
+let AC=null,masterVol=null,sfxVol=null,musicBus=null,musicOn=true,sfxOn=true,musicPlaying=false;
+let _musicOsc=[],_musicTimers=[];
+const MUSIC_LEVEL=0.5;
 
 function initAC(){
   if(AC)return;
   AC=new(window.AudioContext||window.webkitAudioContext)();
   masterVol=AC.createGain();masterVol.gain.value=0.72;masterVol.connect(AC.destination);
   sfxVol=AC.createGain();sfxVol.gain.value=1.0;sfxVol.connect(masterVol);
-  musicVol=AC.createGain();musicVol.gain.value=0.55;
-  // Simple convolution reverb (short impulse)
-  const rLen=AC.sampleRate*2.2;
-  const rBuf=AC.createBuffer(2,rLen,AC.sampleRate);
-  for(let c=0;c<2;c++){const d=rBuf.getChannelData(c);for(let i=0;i<rLen;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/rLen,2.4);}
-  reverbNode=AC.createConvolver();reverbNode.buffer=rBuf;
-  const revGain=AC.createGain();revGain.gain.value=0.32;
-  musicVol.connect(reverbNode);reverbNode.connect(revGain);revGain.connect(masterVol);
-  musicVol.connect(masterVol);
+  // music bus: gain → warm lowpass → master (+ gentle dark reverb send)
+  musicBus=AC.createGain();musicBus.gain.value=0;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;lp.Q.value=0.3;
+  musicBus.connect(lp);
+  const rLen=AC.sampleRate*1.8,rBuf=AC.createBuffer(2,rLen,AC.sampleRate);
+  for(let c=0;c<2;c++){const d=rBuf.getChannelData(c);for(let i=0;i<rLen;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/rLen,3);}
+  const rev=AC.createConvolver();rev.buffer=rBuf;
+  const revGain=AC.createGain();revGain.gain.value=0.2;
+  lp.connect(rev);rev.connect(revGain);revGain.connect(masterVol);
+  lp.connect(masterVol);
 }
 
-/* ── Ambient music ── */
+/* ── Ambient music — idempotent start, fully stoppable ── */
 function startMusic(){
-  initAC();if(!musicOn)return;
-  // Bass drone — two very slightly detuned sines for warmth
+  initAC();
+  if(!musicOn||musicPlaying)return;
+  musicPlaying=true;
+  musicBus.gain.cancelScheduledValues(AC.currentTime);
+  musicBus.gain.setTargetAtTime(MUSIC_LEVEL,AC.currentTime,1.2);
   const t=AC.currentTime;
-  function makeDrone(freq,gain,detune=0){
-    const o=AC.createOscillator(),g=AC.createGain(),lfo=AC.createOscillator(),lfog=AC.createGain();
-    o.type='sine';o.frequency.value=freq;o.detune.value=detune;
-    lfo.type='sine';lfo.frequency.value=0.07+(Math.random()*0.06);lfog.gain.value=gain*0.35;
-    g.gain.value=gain;lfo.connect(lfog);lfog.connect(g.gain);
-    o.connect(g);g.connect(musicVol);o.start(t);lfo.start(t);
-    return[o,g,lfo];
+  // warm drone pair, slightly detuned, slow breathing LFO (tracked for stop)
+  function drone(freq,gain,det){
+    const o=AC.createOscillator(),g=AC.createGain(),lfo=AC.createOscillator(),lg=AC.createGain();
+    o.type='sine';o.frequency.value=freq;o.detune.value=det;
+    g.gain.value=gain;
+    lfo.type='sine';lfo.frequency.value=0.05+Math.random()*0.05;lg.gain.value=gain*0.3;
+    lfo.connect(lg);lg.connect(g.gain);
+    o.connect(g);g.connect(musicBus);o.start(t);lfo.start(t);
+    _musicOsc.push(o,lfo);
   }
-  // Pentatonic pad (Cm: C3 Eb3 F3 G3 Bb3 C4)
-  const penta=[65.4,77.8,87.3,98.0,116.5,130.8];
-  function makePad(freq,startDelay,dur){
-    const o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain();
-    o.type='triangle';o.frequency.value=freq;o.detune.value=4;
-    o2.type='sine';o2.frequency.value=freq*2;o2.detune.value=-3;
-    const g2=AC.createGain();g2.gain.value=0.18;
-    const now=AC.currentTime+startDelay;
-    g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(0.32,now+4.5);
-    g.gain.linearRampToValueAtTime(0.28,now+dur-4.0);g.gain.linearRampToValueAtTime(0,now+dur);
-    o.connect(g);o2.connect(g2);g.connect(musicVol);g2.connect(musicVol);
-    o.start(now);o2.start(now);o.stop(now+dur);o2.stop(now+dur);
-  }
-  // Bass + shimmer drones
-  makeDrone(32.7,0.18,-2);makeDrone(32.7,0.12,2);makeDrone(65.4,0.07,0);
-  // Layered pads — cycle through chord voicings
-  function schedulePads(){
-    if(!musicOn)return;
-    const now=AC.currentTime;
-    const chord=penta.slice(0,4);
-    chord.forEach((f,i)=>makePad(f,i*1.8,24+Math.random()*12));
-    makePad(penta[0]*2,0,28);
-    _arpTimer=setTimeout(schedulePads,(26+Math.random()*8)*1000);
-  }
-  schedulePads();
-  // High shimmer layer
-  function shimmer(){
-    if(!musicOn)return;
+  drone(65.4,0.16,-3);drone(65.4,0.11,3);drone(130.8,0.05,0);
+  // C-minor pentatonic, mid register (less mud, no sub-bass distortion)
+  const penta=[130.8,155.6,174.6,196.0,233.1,261.6];
+  function pad(freq,delay,dur){
+    if(!musicPlaying)return;
+    const now=AC.currentTime+delay;
     const o=AC.createOscillator(),g=AC.createGain();
-    const f=penta[Math.floor(Math.random()*penta.length)]*(4+Math.floor(Math.random()*2));
-    o.type='sine';o.frequency.value=f;
-    const now=AC.currentTime;
-    g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(0.04+Math.random()*0.03,now+2.5);
-    g.gain.linearRampToValueAtTime(0,now+8+Math.random()*6);
-    o.connect(g);g.connect(musicVol);o.start(now);o.stop(now+15);
-    setTimeout(shimmer,(4000+Math.random()*8000));
+    o.type='triangle';o.frequency.value=freq;o.detune.value=Math.random()*6-3;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(0.15,now+5);
+    g.gain.setValueAtTime(0.15,now+dur-5);
+    g.gain.linearRampToValueAtTime(0,now+dur);
+    o.connect(g);g.connect(musicBus);
+    o.start(now);o.stop(now+dur+0.1);
   }
-  shimmer();
+  function cycle(){
+    if(!musicPlaying)return;
+    const v=Math.floor(Math.random()*2);
+    [penta[v],penta[v+2],penta[v+3]].forEach((f,i)=>pad(f,i*2.2,26));
+    pad(penta[(v+4)%6]*2,4,22);
+    _musicTimers.push(setTimeout(cycle,24000+Math.random()*8000));
+  }
+  cycle();
+  function shimmer(){
+    if(!musicPlaying)return;
+    const now=AC.currentTime;
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sine';o.frequency.value=penta[Math.floor(Math.random()*penta.length)]*4;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(0.025,now+3);
+    g.gain.linearRampToValueAtTime(0,now+10);
+    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+10.5);
+    _musicTimers.push(setTimeout(shimmer,9000+Math.random()*9000));
+  }
+  _musicTimers.push(setTimeout(shimmer,6000));
 }
 
 function stopMusic(){
-  if(!AC)return;
-  musicVol.gain.setTargetAtTime(0,AC.currentTime,0.8);
-  clearTimeout(_arpTimer);
-  setTimeout(()=>{musicVol.gain.value=0.55;},3000);
+  if(!AC||!musicPlaying)return;
+  musicPlaying=false;
+  _musicTimers.forEach(clearTimeout);_musicTimers=[];
+  musicBus.gain.cancelScheduledValues(AC.currentTime);
+  musicBus.gain.setTargetAtTime(0,AC.currentTime,0.25);
+  const osc=_musicOsc;_musicOsc=[];
+  setTimeout(()=>{osc.forEach(o=>{try{o.stop();}catch(e){}});},1500);
 }
 
 function toggleMusic(){
+  initAC();if(AC.state==='suspended')AC.resume();
   musicOn=!musicOn;
-  if(musicOn){musicVol.gain.setTargetAtTime(0.55,AC.currentTime,0.5);startMusic();}
-  else stopMusic();
+  if(musicOn)startMusic();else stopMusic();
   document.getElementById('btn-music').textContent=musicOn?'♪ Music':'♪ Off';
 }
-function toggleSfx(){sfxOn=!sfxOn;document.getElementById('btn-sfx').textContent=sfxOn?'◎ Sounds':'◎ Muted';}
+function toggleSfx(){
+  initAC();if(AC.state==='suspended')AC.resume();
+  sfxOn=!sfxOn;
+  sfxVol.gain.setTargetAtTime(sfxOn?1:0,AC.currentTime,0.04);
+  document.getElementById('btn-sfx').textContent=sfxOn?'◎ Sounds':'◎ Muted';
+}
 window.toggleMusic=toggleMusic;window.toggleSfx=toggleSfx;
 
 /* ── Sound effects ── */
@@ -866,7 +878,6 @@ function sfx(type){
       g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(0.22,t+0.12);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
       o.start(t);o.stop(t+0.65);break;
     case'arrive':
-      // gentle chime triplet
       [0,0.1,0.22].forEach((delay,i)=>{
         const oi=AC.createOscillator(),gi=AC.createGain();gi.connect(sfxVol);
         oi.type='sine';oi.frequency.value=[880,1108,1320][i];
@@ -876,7 +887,6 @@ function sfx(type){
       });
       break;
     case'flag':
-      // ascending pentatonic 3-note arp
       [0,0.1,0.2].forEach((delay,i)=>{
         const oi=AC.createOscillator(),gi=AC.createGain();gi.connect(sfxVol);
         oi.type='triangle';oi.frequency.value=[523,659,784][i];
@@ -894,7 +904,6 @@ function sfx(type){
       g.gain.setValueAtTime(0.12,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
       o.start(t);o.stop(t+0.2);break;
     case'complete':
-      // warm major chord bloom
       [523,659,784,1047].forEach((freq,i)=>{
         const oi=AC.createOscillator(),gi=AC.createGain();gi.connect(sfxVol);
         oi.type='triangle';oi.frequency.value=freq;
@@ -908,8 +917,8 @@ function sfx(type){
   if(type==='click'||type==='travel'||type==='unflag'||type==='open')o.connect(g);
 }
 
-// Hook into canvas — first interaction starts audio
-function resumeAC(){initAC();if(AC.state==='suspended')AC.resume();startMusic();}
+// First interaction unlocks audio; startMusic guards itself so this is safe per-click
+function resumeAC(){initAC();if(AC.state==='suspended')AC.resume();if(musicOn&&!musicPlaying)startMusic();}
 
 /* ============================================================
    ACTIONS
@@ -1429,7 +1438,7 @@ function loop(t){
       const spd=Math.max(2,Math.min(32,jd*0.012)*curve+2);
       ship.wx+=dx/dist*spd;ship.wy+=dy/dist*spd;
       ship.angle=Math.atan2(dy,dx)+Math.PI/2;
-    }else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;}
+    }else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;sfx('arrive');}
   }
   drawFalcon(ship.wx,ship.wy,ship.angle,ship.moving);
   requestAnimationFrame(loop);
