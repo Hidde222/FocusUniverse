@@ -153,10 +153,10 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .ss-opt:hover{transform:translateY(-2px);border-color:rgba(170,190,255,0.4);}
 .ss-opt.sel{border-color:rgba(126,239,196,0.75);color:#aef0d4;background:rgba(20,42,40,0.5);}
 .ss-opt canvas{width:56px;height:56px;display:block;}
-#credits-chip{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(200,170,80,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#ffd97e;letter-spacing:0.04em;pointer-events:none;}
+#credits-chip{position:absolute;top:108px;right:12px;z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#d9e2f0;letter-spacing:0.04em;pointer-events:none;}
 #credits-chip .cc-ico{font-size:15px;}
 .ss-opt.locked{opacity:0.55;cursor:default;}
-.ss-opt .ss-cost{font-size:10px;color:#ffc85e;margin-top:1px;}
+.ss-opt .ss-cost{font-size:10px;color:#c8d4e6;margin-top:1px;}
 #hangar-pop{max-height:90vh;overflow-y:auto;}
 #gs-carousel{display:flex;align-items:center;gap:18px;width:100%;}
 #gal-cards{display:flex;gap:44px;align-items:flex-start;transition:transform .38s cubic-bezier(.4,0,.2,1);will-change:transform;}
@@ -185,7 +185,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
     <div id="search-wrap"><input id="search-in" type="text" placeholder="Search systems &amp; planets…" autocomplete="off" oninput="doSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';document.getElementById('search-results').style.display='none';}"><div id="search-results"></div></div>
     <div id="sys-card"></div>
     <div id="timer-chip" onclick="openMission()" style="cursor:pointer;"><span id="tc-ico">🚀</span><span id="tc-time">25:00</span><button id="tc-abort" onclick="event.stopPropagation();abortMission()" title="Abort mission">✕</button></div>
-    <div id="credits-chip" style="display:none;"><span class="cc-ico">✦</span><span id="cc-num">0</span> credits</div>
+    <div id="credits-chip" style="display:none;"><span class="cc-ico">⬡</span><span id="cc-num">0</span> credits</div>
   </div>
   <div id="bottom">
     <div id="panel-inner"><p class="hint">Click a sun or planet to explore &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; scroll to zoom</p></div>
@@ -236,6 +236,8 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
       <div id="hangar-pop">
         <div class="ss-label">Select your ship</div>
         <div class="ss-row" id="ss-row"></div>
+        <div class="ss-label" style="margin-top:8px;">Exhausts</div>
+        <div class="ss-row" id="ex-row"></div>
       </div>
     </div>
     <div class="gs-title">Choose your galaxy</div>
@@ -288,10 +290,10 @@ function clone(o){return JSON.parse(JSON.stringify(o));}
 const HUB_KEY='sno_galaxies_v1';
 let _mem=null,hub=null;
 function loadHub(){
-  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=200;if(!h.unlocked)h.unlocked=[0,1,2];return h;}}}catch(e){}
+  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=200;if(!h.unlocked)h.unlocked=[0,1,2];if(!h.unlockedEx)h.unlockedEx=[0];return h;}}}catch(e){}
   // migrate the old single-galaxy save into the hub
   try{const old=localStorage.getItem(STORE_KEY);if(old){const g=JSON.parse(old);if(g&&g.systems)return{galaxies:[g],current:0};}}catch(e){}
-  return _mem||{galaxies:[],current:-1,credits:200,unlocked:[0,1,2]};
+  return _mem||{galaxies:[],current:-1,credits:200,unlocked:[0,1,2],unlockedEx:[0]};
 }
 function saveData(){try{localStorage.setItem(HUB_KEY,JSON.stringify(hub));}catch(e){_mem=hub;}}
 
@@ -888,20 +890,78 @@ function updateCreditsChip(){
 function addCredits(n){
   hub.credits=(hub.credits||0)+n;
   saveData();updateCreditsChip();
-  if(n>0)toast('✦ +'+n+' credit'+(n!==1?'s':'')+'  (total: '+hub.credits+')');
+  if(n>0)toast('⬡ +'+n+' credit'+(n!==1?'s':'')+'  (total: '+hub.credits+')');
 }
 function buyShip(idx){
   const cost=100;
   if((hub.unlocked||[]).includes(idx))return;
-  if((hub.credits||0)<cost){toast('Not enough credits — need 100 ✦');sfx('click');return;}
+  if((hub.credits||0)<cost){toast('Not enough credits — need 100 ⬡');sfx('click');return;}
   hub.credits=(hub.credits||0)-cost;
   hub.unlocked=(hub.unlocked||[0,1,2]).concat([idx]);
   saveData();updateCreditsChip();
   sfx('complete');
-  toast('Ship unlocked! ✦');
+  toast('Ship unlocked! ⬡');
   renderShipPicker();
 }
 window.buyShip=buyShip;
+
+/* ── Exhausts (engine trails): 0 = Ember (free), 1 = Plasma, 2 = Aurora ── */
+const EXHAUST_NAMES=['Ember','Plasma','Aurora'];
+const EXHAUST_COLS=[
+  ['rgba(180,130,60,1)','rgba(255,170,80,1)'],
+  ['rgba(60,160,230,1)','rgba(140,230,255,1)'],
+  ['rgba(170,80,230,1)','rgba(120,255,210,1)'],
+];
+function buyExhaust(idx){
+  const cost=50;
+  if((hub.unlockedEx||[0]).includes(idx))return;
+  if((hub.credits||0)<cost){toast('Not enough credits — need 50 ⬡');sfx('click');return;}
+  hub.credits=(hub.credits||0)-cost;
+  hub.unlockedEx=(hub.unlockedEx||[0]).concat([idx]);
+  saveData();updateCreditsChip();
+  sfx('complete');
+  toast('Exhaust unlocked! ⬡');
+  renderShipPicker();
+}
+window.buyExhaust=buyExhaust;
+function renderExhaustPicker(){
+  const row=document.getElementById('ex-row');if(!row)return;
+  row.innerHTML='';
+  const cur=(hub&&hub.exhaust)||0;
+  const unlocked=hub.unlockedEx||[0];
+  EXHAUST_NAMES.forEach((nm,i)=>{
+    const owned=unlocked.includes(i);
+    const b=document.createElement('button');
+    b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
+    const cv=document.createElement('canvas');cv.width=120;cv.height=120;
+    cv.style.cssText='width:60px;height:60px;';
+    const c2=cv.getContext('2d');
+    // preview: flame trail blobs fading downward
+    const [c1,c2col]=EXHAUST_COLS[i];
+    for(let k=0;k<5;k++){
+      const y=26+k*16,r1=16-k*2.2;
+      const g=c2.createRadialGradient(60,y,1,60,y,r1);
+      g.addColorStop(0,c2col.replace(',1)',',0.95)'));
+      g.addColorStop(0.5,c1.replace(',1)',','+(0.7-k*0.12)+')'));
+      g.addColorStop(1,c1.replace(',1)',',0)'));
+      c2.fillStyle=g;c2.beginPath();c2.arc(60,y,r1,0,Math.PI*2);c2.fill();
+    }
+    if(!owned){
+      c2.fillStyle='rgba(4,8,28,0.55)';c2.fillRect(0,0,120,120);
+      c2.font='bold 30px serif';c2.fillStyle='rgba(255,255,255,0.6)';c2.textAlign='center';c2.fillText('🔒',60,70);
+    }
+    b.appendChild(cv);
+    const lb=document.createElement('span');lb.textContent=nm;b.appendChild(lb);
+    if(!owned){
+      const co=document.createElement('span');co.className='ss-cost';co.textContent='50 ⬡';b.appendChild(co);
+    }
+    b.onclick=()=>{
+      if(owned){hub.exhaust=i;saveData();sfx('click');renderShipPicker();}
+      else buyExhaust(i);
+    };
+    row.appendChild(b);
+  });
+}
 
 window.toggleHangar=function(){
   const p=document.getElementById('hangar-pop');
@@ -915,8 +975,8 @@ function renderShipPicker(){
   row.innerHTML='';
   // credits display inside hangar
   let cr=row.parentElement.querySelector('.hg-cred');
-  if(!cr){cr=document.createElement('div');cr.className='hg-cred';cr.style.cssText='font-size:12px;color:#ffd97e;letter-spacing:0.06em;margin-bottom:2px;';row.parentElement.insertBefore(cr,row);}
-  cr.textContent='✦ '+((hub&&hub.credits)||0)+' credits';
+  if(!cr){cr=document.createElement('div');cr.className='hg-cred';cr.style.cssText='font-size:12px;color:#d9e2f0;letter-spacing:0.06em;margin-bottom:2px;';row.parentElement.insertBefore(cr,row);}
+  cr.textContent='⬡ '+((hub&&hub.credits)||0)+' credits';
   const cur=(hub&&hub.ship)||0;
   const unlocked=hub.unlocked||[0,1,2];
   // two rows of 3
@@ -943,7 +1003,7 @@ function renderShipPicker(){
       b.appendChild(cv);
       const lb=document.createElement('span');lb.textContent=SHIP_NAMES[i];b.appendChild(lb);
       if(!owned){
-        const co=document.createElement('span');co.className='ss-cost';co.textContent='100 ✦';b.appendChild(co);
+        const co=document.createElement('span');co.className='ss-cost';co.textContent='100 ⬡';b.appendChild(co);
       }
       b.onclick=()=>{
         if(owned){hub.ship=i;saveData();sfx('click');renderShipPicker();}
@@ -954,6 +1014,7 @@ function renderShipPicker(){
     wrap.appendChild(rowEl);
   });
   row.appendChild(wrap);
+  renderExhaustPicker();
 }
 
 function drawFalcon(wx,wy,angle,moving){
@@ -972,7 +1033,8 @@ function drawFalcon(wx,wy,angle,moving){
     ctx.fill();ctx.stroke();ctx.globalAlpha=1;
   }else{
     if(moving){
-      for(let i=0;i<4;i++){ctx.globalAlpha=0.18-i*0.04;ctx.fillStyle='rgba(180,130,60,1)';ctx.beginPath();ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);ctx.fill();}
+      const exCols=EXHAUST_COLS[(hub&&hub.exhaust)||0];
+      for(let i=0;i<4;i++){ctx.globalAlpha=0.2-i*0.04;ctx.fillStyle=i===0?exCols[1]:exCols[0];ctx.beginPath();ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);ctx.fill();}
       ctx.globalAlpha=1;
     }
     const sIdx=(hub&&hub.ship)||0;
