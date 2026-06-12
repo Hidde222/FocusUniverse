@@ -154,6 +154,8 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .ss-opt:hover{transform:translateY(-2px);border-color:rgba(170,190,255,0.4);}
 .ss-opt.sel{border-color:rgba(126,239,196,0.75);color:#aef0d4;background:rgba(20,42,40,0.5);}
 .ss-opt canvas{width:70px;height:70px;display:block;}
+.ss-opt.premium{width:96px;}
+.ss-opt.premium canvas{width:84px;height:84px;}
 #credits-chip{position:absolute;top:108px;right:12px;z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#d9e2f0;letter-spacing:0.04em;pointer-events:none;}
 #credits-chip .cc-ico{font-size:15px;}
 #cc-give{position:absolute;top:146px;right:12px;z-index:30;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:14px;padding:4px 12px;font-family:var(--font-sans);font-size:11.5px;font-weight:600;color:#d9e2f0;cursor:pointer;letter-spacing:0.04em;transition:border-color .15s,color .15s;}
@@ -444,7 +446,7 @@ function resize(){
 
 let cam={x:2000,y:2100,zoom:0.12};
 let dragging=false,dragLast={x:0,y:0},clickStart={x:0,y:0};
-let ship={wx:2000,wy:2100,tx:2000,ty:2100,angle:0.4,moving:false,journeyDist:0,journeyTravelled:0};
+let ship={wx:2000,wy:2100,tx:2000,ty:2100,angle:0.4,moving:false,journeyDist:0,journeyTravelled:0,scale:1.5,orbit:null};
 let camAnim={active:false,sx:0,sy:0,sz:0,ex:0,ey:0,ez:0,t:0,dur:60,onDone:null};
 let parked={sys:-1,pl:-1};
 let hovered=null,tick=0;
@@ -1014,10 +1016,17 @@ function renderExhaustPicker(){
       const owned=unlocked.includes(i);
       const cost=i>=3?100:50;
       const b=document.createElement('button');
-      b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
+      b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked')+(i>=3?' premium':'');
       const cv=document.createElement('canvas');cv.width=180;cv.height=180;
       const c2=cv.getContext('2d');
       const [c1,c2col]=EXHAUST_COLS[i];
+      if(i>=3){
+        // premium aura behind the flame
+        const ag=c2.createRadialGradient(90,80,10,90,80,88);
+        ag.addColorStop(0,c1.replace(',1)',',0.22)'));
+        ag.addColorStop(1,c1.replace(',1)',',0)'));
+        c2.fillStyle=ag;c2.fillRect(0,0,180,180);
+      }
       // multi-layer flame with glow rings — bigger and richer
       for(let k=0;k<8;k++){
         const y=32+k*17,r1=Math.max(3,24-k*2.4);
@@ -1033,6 +1042,16 @@ function renderExhaustPicker(){
       hg.addColorStop(0.4,c2col.replace(',1)',',0.8)'));
       hg.addColorStop(1,c2col.replace(',1)',',0)'));
       c2.fillStyle=hg;c2.beginPath();c2.arc(90,32,18,0,Math.PI*2);c2.fill();
+      if(i>=3){
+        // sparkle stars scattered through the premium flame
+        c2.fillStyle='rgba(255,255,255,0.9)';
+        [[64,70,2.4],[116,96,1.8],[78,128,2.0],[108,52,1.5],[92,150,1.6]].forEach(([sx,sy,sr])=>{
+          c2.beginPath();c2.arc(sx,sy,sr,0,Math.PI*2);c2.fill();
+          c2.globalAlpha=0.45;
+          c2.beginPath();c2.arc(sx,sy,sr*2.4,0,Math.PI*2);c2.fill();
+          c2.globalAlpha=1;
+        });
+      }
       if(!owned){
         c2.fillStyle='rgba(4,8,28,0.55)';c2.fillRect(0,0,180,180);
         c2.font='bold 40px serif';c2.fillStyle='rgba(255,255,255,0.6)';c2.textAlign='center';c2.fillText('🔒',90,100);
@@ -1109,7 +1128,7 @@ function renderShipPicker(){
 function drawFalcon(wx,wy,angle,moving){
   const s=w2s(wx,wy);
   if(s.x<-80||s.x>CW+80||s.y<-80||s.y>CH+80)return;
-  const size=Math.max(12,cam.zoom*108);
+  const size=Math.max(12,cam.zoom*108)*(ship.scale||1);
   const half=size/2;
   ctx.save();ctx.translate(s.x,s.y);ctx.rotate(angle);
   if(cam.zoom<0.14){
@@ -1122,9 +1141,30 @@ function drawFalcon(wx,wy,angle,moving){
     ctx.fill();ctx.stroke();ctx.globalAlpha=1;
   }else{
     if(moving){
-      const exCols=EXHAUST_COLS[(hub&&hub.exhaust)||0];
-      for(let i=0;i<4;i++){ctx.globalAlpha=0.2-i*0.04;ctx.fillStyle=i===0?exCols[1]:exCols[0];ctx.beginPath();ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);ctx.fill();}
-      ctx.globalAlpha=1;
+      const exi=(hub&&hub.exhaust)||0;
+      const exCols=EXHAUST_COLS[exi];
+      if(exi>=3){
+        // premium trail: longer, flickering, layered glow with sparkles
+        const fl=0.85+0.15*Math.sin(tick*0.02);
+        for(let i=0;i<8;i++){
+          ctx.globalAlpha=Math.max(0,(0.3-i*0.034)*fl);
+          ctx.fillStyle=i<2?exCols[1]:exCols[0];
+          ctx.beginPath();ctx.ellipse(0,half+i*4.2,size*Math.max(0.05,0.26-i*0.02),size*Math.max(0.03,0.12-i*0.009),0,0,Math.PI*2);ctx.fill();
+        }
+        // drifting sparkles in the wake
+        ctx.fillStyle='rgba(255,255,255,0.9)';
+        for(let k=0;k<3;k++){
+          const ph=tick*0.01+k*2.1;
+          const px=Math.sin(ph*1.7+k)*size*0.12;
+          const py=half+((tick*0.07+k*47)%(size*1.1));
+          ctx.globalAlpha=Math.max(0,0.45+0.4*Math.sin(ph*3));
+          ctx.beginPath();ctx.arc(px,py,Math.max(0.7,size*0.022),0,Math.PI*2);ctx.fill();
+        }
+        ctx.globalAlpha=1;
+      }else{
+        for(let i=0;i<4;i++){ctx.globalAlpha=0.2-i*0.04;ctx.fillStyle=i===0?exCols[1]:exCols[0];ctx.beginPath();ctx.ellipse(0,half+i*3.5,size*0.18,size*0.08,0,0,Math.PI*2);ctx.fill();}
+        ctx.globalAlpha=1;
+      }
     }
     const sIdx=(hub&&hub.ship)||0;
     if(sIdx===0){
@@ -1512,7 +1552,7 @@ function resumeAC(){
 /* ============================================================
    ACTIONS
    ============================================================ */
-window.flyTo=function(si,pi){sfx('travel');leavePlanet();
+window.flyTo=function(si,pi){sfx('travel');leavePlanet();ship.orbit=null;
   const pp=planetPos(si,pi);
   ship.journeyDist=Math.hypot(pp.x-ship.wx,pp.y-ship.wy);
   ship.tx=pp.x+18;ship.ty=pp.y-14;ship.moving=true;
@@ -1533,9 +1573,14 @@ let sysCardSi=-1;
 window.closeSysCard=function(){document.getElementById('sys-card').style.display='none';sysCardSi=-1;};
 window.travelTo=function(si){sfx('travel');leavePlanet();
   closeSysCard();
-  const sp=SYS_POS[si];
-  ship.journeyDist=Math.hypot(sp.x-ship.wx,sp.y-ship.wy);
-  ship.tx=sp.x+28;ship.ty=sp.y-22;ship.moving=true;
+  const sp=SYS_POS[si],sun=SYSTEMS[si].sun;
+  // park in a safe orbit around the star, entering at the nearest point
+  const orbR=sun.r*2.2+70;
+  const entryA=Math.atan2(ship.wy-sp.y,ship.wx-sp.x);
+  ship.orbit={si,R:orbR,a:entryA};
+  ship.tx=sp.x+Math.cos(entryA)*orbR;ship.ty=sp.y+Math.sin(entryA)*orbR;
+  ship.journeyDist=Math.hypot(ship.tx-ship.wx,ship.ty-ship.wy);
+  ship.moving=true;
   parked.sys=si;parked.pl=-1;updateHUD();showPanel(si,-1);
   startCamAnim(sp.x,sp.y,0.3);
 };
@@ -2080,7 +2125,18 @@ function loop(t){
         playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
       }else{leavePlanet();}
     }
+  }else if(ship.orbit&&parked.sys===ship.orbit.si&&parked.pl<0&&SYS_POS[ship.orbit.si]){
+    // slow safe orbit around the star
+    const ob=ship.orbit,sp=SYS_POS[ob.si];
+    ob.a+=0.0028;
+    ship.wx=sp.x+Math.cos(ob.a)*ob.R;ship.wy=sp.y+Math.sin(ob.a)*ob.R;
+    ship.tx=ship.wx;ship.ty=ship.wy;
+    // face along the direction of travel (tangent)
+    ship.angle=Math.atan2(Math.cos(ob.a),-Math.sin(ob.a))+Math.PI/2;
   }
+  // smooth ship size: half size when landed on a planet, 1.5x when flying
+  const _shipTargetScale=(!ship.moving&&parked.pl>=0)?0.5:1.5;
+  ship.scale+=(_shipTargetScale-ship.scale)*0.055;
   drawFalcon(ship.wx,ship.wy,ship.angle,ship.moving);
   requestAnimationFrame(loop);
 }
