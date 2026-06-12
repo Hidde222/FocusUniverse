@@ -4,7 +4,8 @@
 <style>
 :root{--font-sans:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--c0:#030b1a;--c1:#0a1428;--c2:#111e38;--ca:#7eb8f7;--cb:#a78bfa;--cc:#34d399;--cd:#fbbf24;--ct:#e2e8f8;--cs:rgba(160,185,235,0.65);--bord:rgba(100,130,210,0.18);}
 *{box-sizing:border-box;margin:0;padding:0;}
-#root{position:relative;display:flex;flex-direction:column;height:620px;background:var(--c0);border-radius:14px;overflow:hidden;font-family:var(--font-sans);}
+html,body{height:100%;background:var(--c0);}
+#root{position:relative;display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--c0);overflow:hidden;font-family:var(--font-sans);}
 #canvaswrap{position:relative;flex:1;overflow:hidden;min-height:0;}
 #c{display:block;width:100%;height:100%;cursor:grab;}
 #c.grabbing{cursor:grabbing;}
@@ -155,9 +156,19 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .ss-opt canvas{width:70px;height:70px;display:block;}
 #credits-chip{position:absolute;top:108px;right:12px;z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#d9e2f0;letter-spacing:0.04em;pointer-events:none;}
 #credits-chip .cc-ico{font-size:15px;}
+#cc-give{position:absolute;top:146px;right:12px;z-index:30;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:14px;padding:4px 12px;font-family:var(--font-sans);font-size:11.5px;font-weight:600;color:#d9e2f0;cursor:pointer;letter-spacing:0.04em;transition:border-color .15s,color .15s;}
+#cc-give:hover{border-color:rgba(200,215,240,0.65);color:#fff;}
 .ss-opt.locked{opacity:0.55;cursor:default;}
 .ss-opt .ss-cost{font-size:10px;color:#c8d4e6;margin-top:1px;}
-#hangar-pop{max-height:90vh;overflow-y:auto;}
+#hangar-pop{max-height:86vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(120,150,220,0.35) transparent;}
+#hangar-pop::-webkit-scrollbar{width:8px;}
+#hangar-pop::-webkit-scrollbar-track{background:transparent;}
+#hangar-pop::-webkit-scrollbar-thumb{background:rgba(120,150,220,0.32);border-radius:8px;border:2px solid transparent;background-clip:padding-box;}
+#hangar-pop::-webkit-scrollbar-thumb:hover{background:rgba(150,180,255,0.5);border:2px solid transparent;background-clip:padding-box;}
+#panel-inner,#ed-body{scrollbar-width:thin;scrollbar-color:rgba(120,150,220,0.35) transparent;}
+#panel-inner::-webkit-scrollbar,#ed-body::-webkit-scrollbar{width:8px;}
+#panel-inner::-webkit-scrollbar-track,#ed-body::-webkit-scrollbar-track{background:transparent;}
+#panel-inner::-webkit-scrollbar-thumb,#ed-body::-webkit-scrollbar-thumb{background:rgba(120,150,220,0.32);border-radius:8px;}
 /* ---- adaptive scaling for larger monitors ---- */
 @media (min-width:1700px){
   .hl{font-size:11px;}.hv{font-size:15px;}
@@ -169,6 +180,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
   #tip .tn{font-size:15px;}#tip .ts{font-size:12.5px;}
   #tc-time{font-size:16px;}#tc-ico{font-size:15px;}
   #credits-chip{font-size:15px;padding:8px 20px;}
+  #cc-give{top:154px;font-size:13px;}
   #gal-select .gs-title{font-size:26px;}
   #gal-select .gs-sub{font-size:14.5px;}
   .g-card canvas{width:300px;height:300px;margin:-40px;}
@@ -191,6 +203,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
   #search-wrap{width:320px;}
   #search-in{font-size:16px;}
   #credits-chip{font-size:17px;}
+  #cc-give{top:160px;font-size:14px;}
   #gal-select .gs-title{font-size:31px;}
   #gal-select .gs-sub{font-size:16px;}
   .g-card canvas{width:360px;height:360px;margin:-48px;}
@@ -229,6 +242,7 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
     <div id="sys-card"></div>
     <div id="timer-chip" onclick="openMission()" style="cursor:pointer;"><span id="tc-ico">🚀</span><span id="tc-time">25:00</span><button id="tc-abort" onclick="event.stopPropagation();abortMission()" title="Abort mission">✕</button></div>
     <div id="credits-chip" style="display:none;"><span class="cc-ico">⬡</span><span id="cc-num">0</span> credits</div>
+    <button id="cc-give" onclick="addCredits(100)" title="Testing: add 100 credits">+100 ⬡</button>
   </div>
   <div id="bottom">
     <div id="panel-inner"><p class="hint">Click a sun or planet to explore &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; scroll to zoom</p></div>
@@ -946,6 +960,7 @@ function updateCreditsChip(){
   el.style.display='flex';
   document.getElementById('cc-num').textContent=hub.credits||0;
 }
+window.addCredits=addCredits;
 function addCredits(n){
   hub.credits=(hub.credits||0)+n;
   saveData();updateCreditsChip();
