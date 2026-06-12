@@ -152,12 +152,55 @@ input[type=range].m-rng::-moz-range-thumb{width:16px;height:16px;border-radius:5
 .ss-opt{width:78px;padding:8px 6px 7px;border-radius:14px;border:1px solid rgba(140,160,220,0.18);background:rgba(16,24,52,0.45);backdrop-filter:blur(6px);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform 0.15s,border-color 0.15s;color:rgba(190,205,240,0.75);font-size:10.5px;font-family:inherit;letter-spacing:0.06em;}
 .ss-opt:hover{transform:translateY(-2px);border-color:rgba(170,190,255,0.4);}
 .ss-opt.sel{border-color:rgba(126,239,196,0.75);color:#aef0d4;background:rgba(20,42,40,0.5);}
-.ss-opt canvas{width:56px;height:56px;display:block;}
+.ss-opt canvas{width:70px;height:70px;display:block;}
 #credits-chip{position:absolute;top:108px;right:12px;z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#d9e2f0;letter-spacing:0.04em;pointer-events:none;}
 #credits-chip .cc-ico{font-size:15px;}
 .ss-opt.locked{opacity:0.55;cursor:default;}
 .ss-opt .ss-cost{font-size:10px;color:#c8d4e6;margin-top:1px;}
 #hangar-pop{max-height:90vh;overflow-y:auto;}
+/* ---- adaptive scaling for larger monitors ---- */
+@media (min-width:1700px){
+  .hl{font-size:11px;}.hv{font-size:15px;}
+  #hud-tl,#hud-tr{padding:11px 17px;border-radius:12px;}
+  #ctrls button{font-size:14px;padding:8px 16px;border-radius:10px;}
+  .hint{font-size:14px;}
+  #search-wrap{width:260px;}
+  #search-in{font-size:14.5px;padding:9px 14px;}
+  #tip .tn{font-size:15px;}#tip .ts{font-size:12.5px;}
+  #tc-time{font-size:16px;}#tc-ico{font-size:15px;}
+  #credits-chip{font-size:15px;padding:8px 20px;}
+  #gal-select .gs-title{font-size:26px;}
+  #gal-select .gs-sub{font-size:14.5px;}
+  .g-card canvas{width:300px;height:300px;margin:-40px;}
+  .g-add-circle{width:220px;height:220px;}
+  .g-name{font-size:18px;max-width:240px;}
+  .g-sub{font-size:13px;}
+  .gs-arrow{width:58px;height:58px;font-size:26px;}
+  #hangar-btn{font-size:13.5px;padding:11px 22px;}
+  .ss-opt{width:96px;font-size:12px;}
+  .ss-opt canvas{width:84px;height:84px;}
+  .ss-opt .ss-cost{font-size:11.5px;}
+  .wbox h1{font-size:27px;}.wbox p{font-size:15px;}
+  .wbtn{font-size:15px;padding:11px 22px;}
+  .pnl-btn{font-size:13.5px;padding:5px 12px;}
+}
+@media (min-width:2300px){
+  .hv{font-size:17px;}
+  #ctrls button{font-size:15.5px;padding:10px 20px;}
+  .hint{font-size:15.5px;}
+  #search-wrap{width:320px;}
+  #search-in{font-size:16px;}
+  #credits-chip{font-size:17px;}
+  #gal-select .gs-title{font-size:31px;}
+  #gal-select .gs-sub{font-size:16px;}
+  .g-card canvas{width:360px;height:360px;margin:-48px;}
+  .g-add-circle{width:264px;height:264px;}
+  .g-name{font-size:21px;max-width:280px;}
+  .g-sub{font-size:14.5px;}
+  .gs-arrow{width:66px;height:66px;font-size:30px;}
+  .ss-opt{width:112px;font-size:13px;}
+  .ss-opt canvas{width:98px;height:98px;}
+}
 #gs-carousel{display:flex;align-items:center;gap:18px;width:100%;}
 #gal-cards{display:flex;gap:44px;align-items:flex-start;transition:transform .38s cubic-bezier(.4,0,.2,1);will-change:transform;}
 .gs-arrow{background:rgba(18,30,80,0.7);border:1px solid rgba(120,150,220,0.35);color:rgba(200,220,255,0.85);width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
@@ -374,7 +417,16 @@ function fitView(){
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
 let CW=0,CH=0;
-function resize(){const wrap=document.getElementById('canvaswrap');CW=wrap.clientWidth||680;CH=wrap.clientHeight||420;canvas.width=CW;canvas.height=CH;}
+function resize(){
+  const wrap=document.getElementById('canvaswrap');
+  CW=wrap.clientWidth||680;CH=wrap.clientHeight||420;
+  // render at native pixel density (capped at 2x) for crisp output on hi-DPI/large monitors
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=Math.round(CW*dpr);canvas.height=Math.round(CH*dpr);
+  canvas.style.width=CW+'px';canvas.style.height=CH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  rebuildStars();
+}
 
 let cam={x:2000,y:2100,zoom:0.12};
 let dragging=false,dragLast={x:0,y:0},clickStart={x:0,y:0};
@@ -389,7 +441,14 @@ const STAR_LAYERS=[
   {count:120,rMin:0.9,rMax:1.8,speed:0.32,color:'rgba(255,245,220,0.72)'},
   {count:28, rMin:1.5,rMax:2.6,speed:0.50,color:'rgba(255,235,180,0.85)'}
 ];
-const STAR_DATA=STAR_LAYERS.map(l=>{const arr=[];for(let i=0;i<l.count;i++)arr.push({nx:Math.random(),ny:Math.random(),r:l.rMin+Math.random()*(l.rMax-l.rMin),tw:Math.random()*Math.PI*2});return arr;});
+// fixed pool at 3x base density; visible slice scales with screen area so big
+// monitors get proportionally more stars without re-randomising on resize
+const STAR_POOL=STAR_LAYERS.map(l=>{const arr=[];const max=Math.round(l.count*3);for(let i=0;i<max;i++)arr.push({nx:Math.random(),ny:Math.random(),r:l.rMin+Math.random()*(l.rMax-l.rMin),tw:Math.random()*Math.PI*2});return arr;});
+let STAR_DATA=STAR_LAYERS.map((l,i)=>STAR_POOL[i].slice(0,l.count));
+function rebuildStars(){
+  const k=Math.min(3,Math.max(0.5,(CW*CH)/(1280*720)));
+  STAR_DATA=STAR_LAYERS.map((l,i)=>STAR_POOL[i].slice(0,Math.round(l.count*k)));
+}
 const NEBULAE=[
   {x:1700,y:1500,rx:820,ry:460,c:'rgba(80,40,160,0.09)'},
   {x:3000,y:1100,rx:600,ry:340,c:'rgba(30,70,160,0.08)'},
@@ -942,7 +1001,6 @@ function renderExhaustPicker(){
       const b=document.createElement('button');
       b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
       const cv=document.createElement('canvas');cv.width=180;cv.height=180;
-      cv.style.cssText='width:70px;height:70px;';
       const c2=cv.getContext('2d');
       const [c1,c2col]=EXHAUST_COLS[i];
       // multi-layer flame with glow rings — bigger and richer
@@ -1005,7 +1063,6 @@ function renderShipPicker(){
       const b=document.createElement('button');
       b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
       const cv=document.createElement('canvas');cv.width=140;cv.height=140;
-      cv.style.cssText='width:70px;height:70px;';
       const c2=cv.getContext('2d');
       if(i===0){
         const paint=()=>{c2.clearRect(0,0,140,140);c2.drawImage(SHIP_IMG,10,10,120,120);};
@@ -1042,7 +1099,7 @@ function drawFalcon(wx,wy,angle,moving){
   ctx.save();ctx.translate(s.x,s.y);ctx.rotate(angle);
   if(cam.zoom<0.14){
     // Zoomed-out mode: fixed-size arrow pointer so it's always visible
-    const ps=18;
+    const ps=18*Math.min(1.5,Math.max(1,Math.min(CW,CH)/820));
     if(moving){ctx.globalAlpha=0.3;ctx.fillStyle='#7eefc4';ctx.beginPath();ctx.ellipse(0,ps*0.7,ps*0.35,ps*0.14,0,0,Math.PI*2);ctx.fill();}
     ctx.globalAlpha=moving?0.95:0.82;
     ctx.fillStyle='#7eefc4';ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1.1;
