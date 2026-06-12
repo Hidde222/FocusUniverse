@@ -1811,7 +1811,7 @@ canvas.addEventListener('mouseup',e=>{
     if(hit){
       if(hit.type==='planet'){showPlanetCard(hit.si,hit.pi);showPanel(hit.si,-1);}
       else{showSysCard(hit.si);showPanel(hit.si,-1);}
-    }else{closeSysCard();parked.sys=-1;parked.pl=-1;updateHUD();showPanel(-1,-1);}
+    }else{closeSysCard();showPanel(-1,-1);} // clicking empty space closes cards but the ship stays parked where it is
   }
   dragging=false;
 });
