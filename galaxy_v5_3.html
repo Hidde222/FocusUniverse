@@ -290,10 +290,10 @@ function clone(o){return JSON.parse(JSON.stringify(o));}
 const HUB_KEY='sno_galaxies_v1';
 let _mem=null,hub=null;
 function loadHub(){
-  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=200;if(!h.unlocked)h.unlocked=[0,1,2];if(!h.unlockedEx)h.unlockedEx=[0];return h;}}}catch(e){}
+  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=1000000;if(!h.unlocked)h.unlocked=[0,1,2];if(!h.unlockedEx)h.unlockedEx=[0];return h;}}}catch(e){}
   // migrate the old single-galaxy save into the hub
   try{const old=localStorage.getItem(STORE_KEY);if(old){const g=JSON.parse(old);if(g&&g.systems)return{galaxies:[g],current:0};}}catch(e){}
-  return _mem||{galaxies:[],current:-1,credits:200,unlocked:[0,1,2],unlockedEx:[0]};
+  return _mem||{galaxies:[],current:-1,credits:1000000,unlocked:[0,1,2],unlockedEx:[0]};
 }
 function saveData(){try{localStorage.setItem(HUB_KEY,JSON.stringify(hub));}catch(e){_mem=hub;}}
 
@@ -906,16 +906,19 @@ function buyShip(idx){
 window.buyShip=buyShip;
 
 /* ── Exhausts (engine trails): 0 = Ember (free), 1 = Plasma, 2 = Aurora ── */
-const EXHAUST_NAMES=['Ember','Plasma','Aurora'];
+const EXHAUST_NAMES=['Ember','Plasma','Aurora','Nebula','Supernova','Void'];
 const EXHAUST_COLS=[
   ['rgba(180,130,60,1)','rgba(255,170,80,1)'],
   ['rgba(60,160,230,1)','rgba(140,230,255,1)'],
   ['rgba(170,80,230,1)','rgba(120,255,210,1)'],
+  ['rgba(220,60,140,1)','rgba(255,160,230,1)'],   // Nebula — rose-pink magenta
+  ['rgba(255,140,30,1)','rgba(255,255,100,1)'],   // Supernova — gold-white blaze
+  ['rgba(20,10,40,1)', 'rgba(130,60,255,1)'],     // Void — deep purple singularity
 ];
 function buyExhaust(idx){
-  const cost=50;
+  const cost=idx>=3?100:50;
   if((hub.unlockedEx||[0]).includes(idx))return;
-  if((hub.credits||0)<cost){toast('Not enough credits — need 50 ⬡');sfx('click');return;}
+  if((hub.credits||0)<cost){toast('Not enough credits — need '+cost+' ⬡');sfx('click');return;}
   hub.credits=(hub.credits||0)-cost;
   hub.unlockedEx=(hub.unlockedEx||[0]).concat([idx]);
   saveData();updateCreditsChip();
@@ -929,38 +932,52 @@ function renderExhaustPicker(){
   row.innerHTML='';
   const cur=(hub&&hub.exhaust)||0;
   const unlocked=hub.unlockedEx||[0];
-  EXHAUST_NAMES.forEach((nm,i)=>{
-    const owned=unlocked.includes(i);
-    const b=document.createElement('button');
-    b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
-    const cv=document.createElement('canvas');cv.width=120;cv.height=120;
-    cv.style.cssText='width:60px;height:60px;';
-    const c2=cv.getContext('2d');
-    // preview: flame trail blobs fading downward
-    const [c1,c2col]=EXHAUST_COLS[i];
-    for(let k=0;k<5;k++){
-      const y=26+k*16,r1=16-k*2.2;
-      const g=c2.createRadialGradient(60,y,1,60,y,r1);
-      g.addColorStop(0,c2col.replace(',1)',',0.95)'));
-      g.addColorStop(0.5,c1.replace(',1)',','+(0.7-k*0.12)+')'));
-      g.addColorStop(1,c1.replace(',1)',',0)'));
-      c2.fillStyle=g;c2.beginPath();c2.arc(60,y,r1,0,Math.PI*2);c2.fill();
-    }
-    if(!owned){
-      c2.fillStyle='rgba(4,8,28,0.55)';c2.fillRect(0,0,120,120);
-      c2.font='bold 30px serif';c2.fillStyle='rgba(255,255,255,0.6)';c2.textAlign='center';c2.fillText('🔒',60,70);
-    }
-    b.appendChild(cv);
-    const lb=document.createElement('span');lb.textContent=nm;b.appendChild(lb);
-    if(!owned){
-      const co=document.createElement('span');co.className='ss-cost';co.textContent='50 ⬡';b.appendChild(co);
-    }
-    b.onclick=()=>{
-      if(owned){hub.exhaust=i;saveData();sfx('click');renderShipPicker();}
-      else buyExhaust(i);
-    };
-    row.appendChild(b);
+  // two rows of 3 for exhausts
+  const exWrap=document.createElement('div');exWrap.style.cssText='display:flex;flex-direction:column;gap:6px;';
+  [[0,1,2],[3,4,5]].forEach(grp=>{
+    const rowEl=document.createElement('div');rowEl.style.cssText='display:flex;gap:8px;';
+    grp.forEach(i=>{
+      const owned=unlocked.includes(i);
+      const cost=i>=3?100:50;
+      const b=document.createElement('button');
+      b.className='ss-opt'+(i===cur?' sel':'')+(owned?'':' locked');
+      const cv=document.createElement('canvas');cv.width=180;cv.height=180;
+      cv.style.cssText='width:70px;height:70px;';
+      const c2=cv.getContext('2d');
+      const [c1,c2col]=EXHAUST_COLS[i];
+      // multi-layer flame with glow rings — bigger and richer
+      for(let k=0;k<8;k++){
+        const y=32+k*17,r1=Math.max(3,24-k*2.4);
+        const g=c2.createRadialGradient(90,y,1,90,y,r1*1.8);
+        g.addColorStop(0,c2col.replace(',1)',',0.98)'));
+        g.addColorStop(0.45,c1.replace(',1)',','+(0.8-k*0.08)+')'));
+        g.addColorStop(1,c1.replace(',1)',',0)'));
+        c2.fillStyle=g;c2.beginPath();c2.arc(90,y,r1*1.8,0,Math.PI*2);c2.fill();
+      }
+      // bright head core
+      const hg=c2.createRadialGradient(90,32,0,90,32,18);
+      hg.addColorStop(0,'rgba(255,255,255,0.95)');
+      hg.addColorStop(0.4,c2col.replace(',1)',',0.8)'));
+      hg.addColorStop(1,c2col.replace(',1)',',0)'));
+      c2.fillStyle=hg;c2.beginPath();c2.arc(90,32,18,0,Math.PI*2);c2.fill();
+      if(!owned){
+        c2.fillStyle='rgba(4,8,28,0.55)';c2.fillRect(0,0,180,180);
+        c2.font='bold 40px serif';c2.fillStyle='rgba(255,255,255,0.6)';c2.textAlign='center';c2.fillText('🔒',90,100);
+      }
+      b.appendChild(cv);
+      const lb=document.createElement('span');lb.textContent=EXHAUST_NAMES[i];b.appendChild(lb);
+      if(!owned){
+        const co=document.createElement('span');co.className='ss-cost';co.textContent=cost+' ⬡';b.appendChild(co);
+      }
+      b.onclick=()=>{
+        if(owned){hub.exhaust=i;saveData();sfx('click');renderShipPicker();}
+        else buyExhaust(i);
+      };
+      rowEl.appendChild(b);
+    });
+    exWrap.appendChild(rowEl);
   });
+  row.appendChild(exWrap);
 }
 
 window.toggleHangar=function(){
@@ -1140,53 +1157,82 @@ function startMusic(){
   if(!musicOn||musicPlaying)return;
   musicPlaying=true;
   musicBus.gain.cancelScheduledValues(AC.currentTime);
-  musicBus.gain.setTargetAtTime(MUSIC_LEVEL,AC.currentTime,1.2);
+  musicBus.gain.setTargetAtTime(MUSIC_LEVEL,AC.currentTime,2.5);
   const t=AC.currentTime;
-  // warm drone pair, slightly detuned, slow breathing LFO (tracked for stop)
-  function drone(freq,gain,det){
+
+  // ── Lo-fi universe ambient ──
+  // Sub-bass sine root — barely felt, not heard
+  function subbass(freq,gain,det){
     const o=AC.createOscillator(),g=AC.createGain(),lfo=AC.createOscillator(),lg=AC.createGain();
     o.type='sine';o.frequency.value=freq;o.detune.value=det;
     g.gain.value=gain;
-    lfo.type='sine';lfo.frequency.value=0.05+Math.random()*0.05;lg.gain.value=gain*0.3;
+    lfo.type='sine';lfo.frequency.value=0.03+Math.random()*0.03;lg.gain.value=gain*0.2;
     lfo.connect(lg);lg.connect(g.gain);
     o.connect(g);g.connect(musicBus);o.start(t);lfo.start(t);
     _musicOsc.push(o,lfo);
   }
-  drone(65.4,0.16,-3);drone(65.4,0.11,3);drone(130.8,0.05,0);
-  // C-minor pentatonic, mid register (less mud, no sub-bass distortion)
-  const penta=[130.8,155.6,174.6,196.0,233.1,261.6];
-  function pad(freq,delay,dur){
+  subbass(55.0,0.08,-5);subbass(55.0,0.06,5);subbass(82.4,0.04,0);
+
+  // Warm Rhodes-style chord pads (C-major pentatonic in a high register for brightness)
+  // C D E G A — gentle and uplifting
+  const lofi=[261.6,293.7,329.6,392.0,440.0,523.3,587.3];
+  function warmPad(freq,delay,dur,vol){
     if(!musicPlaying)return;
     const now=AC.currentTime+delay;
     const o=AC.createOscillator(),g=AC.createGain();
-    o.type='triangle';o.frequency.value=freq;o.detune.value=Math.random()*6-3;
+    // detune slightly for that lo-fi vinyl warmth
+    o.type='triangle';o.frequency.value=freq;o.detune.value=Math.random()*8-4;
+    // long slow attack + gentle release = very calm
     g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(0.15,now+5);
-    g.gain.setValueAtTime(0.15,now+dur-5);
+    g.gain.linearRampToValueAtTime(vol||0.1,now+3.5);
+    g.gain.setValueAtTime(vol||0.1,now+dur-4);
     g.gain.linearRampToValueAtTime(0,now+dur);
     o.connect(g);g.connect(musicBus);
     o.start(now);o.stop(now+dur+0.1);
   }
-  function cycle(){
+  // Slow chord cycle — new chord every 18-28s, three notes staggered
+  function chordCycle(){
     if(!musicPlaying)return;
-    const v=Math.floor(Math.random()*2);
-    [penta[v],penta[v+2],penta[v+3]].forEach((f,i)=>pad(f,i*2.2,26));
-    pad(penta[(v+4)%6]*2,4,22);
-    _musicTimers.push(setTimeout(cycle,24000+Math.random()*8000));
+    const root=Math.floor(Math.random()*4); // pick chord root from pentatonic
+    const notes=[lofi[root],lofi[root+2],lofi[root+1],lofi[root+3]||lofi[0]*2];
+    const dur=22+Math.random()*10;
+    notes.forEach((f,i)=>warmPad(f,i*3.2,dur,0.09));
+    // occasional upper octave sparkle
+    if(Math.random()<0.4)warmPad(lofi[Math.floor(Math.random()*lofi.length)]*2,5,14,0.04);
+    _musicTimers.push(setTimeout(chordCycle,18000+Math.random()*10000));
   }
-  cycle();
-  function shimmer(){
+  chordCycle();
+
+  // Gentle high-shelf sparkle — very quiet, like vinyl dust
+  function sparkle(){
     if(!musicPlaying)return;
     const now=AC.currentTime;
     const o=AC.createOscillator(),g=AC.createGain();
-    o.type='sine';o.frequency.value=penta[Math.floor(Math.random()*penta.length)]*4;
+    o.type='sine';
+    o.frequency.value=lofi[Math.floor(Math.random()*lofi.length)]*4;
     g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(0.025,now+3);
-    g.gain.linearRampToValueAtTime(0,now+10);
-    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+10.5);
-    _musicTimers.push(setTimeout(shimmer,9000+Math.random()*9000));
+    g.gain.linearRampToValueAtTime(0.015,now+2.5);
+    g.gain.linearRampToValueAtTime(0,now+9);
+    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+9.5);
+    _musicTimers.push(setTimeout(sparkle,12000+Math.random()*14000));
   }
-  _musicTimers.push(setTimeout(shimmer,6000));
+  _musicTimers.push(setTimeout(sparkle,8000));
+
+  // Subtle slow bass note walk — lo-fi chord root movement
+  function bassWalk(){
+    if(!musicPlaying)return;
+    const now=AC.currentTime;
+    const bassNotes=[65.4,73.4,82.4,98.0,110.0];
+    const f=bassNotes[Math.floor(Math.random()*bassNotes.length)];
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(0.12,now+1.8);
+    g.gain.linearRampToValueAtTime(0,now+6);
+    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+6.5);
+    _musicTimers.push(setTimeout(bassWalk,9000+Math.random()*12000));
+  }
+  _musicTimers.push(setTimeout(bassWalk,4000));
 }
 
 function stopMusic(){
@@ -1454,7 +1500,7 @@ window.showPlanetCard=function(si,pi){
   const pl=SYSTEMS[si].planets[pi],sys=SYSTEMS[si];
   const pp=planetPos(si,pi),s=w2s(pp.x,pp.y);
   const f=flags[si][pi];
-  const biomeLabel={gas:'Gas giant',earth:'Terrestrial',mars:'Arid',ice:'Frozen',lava:'Volcanic',rocky:'Rocky',ocean:'Ocean',desert:'Desert'};
+  const biomeLabel={gas:'Gas giant',earth:'Terrestrial',mars:'Arid',ice:'Frozen',lava:'Volcanic',rocky:'Rocky',ocean:'Ocean',desert:'Desert',toxic:'Toxic',jungle:'Jungle',ash:'Ash world',tundra:'Tundra',alien:'Alien'};
   const card=document.getElementById('sys-card');
   const cx=Math.min(Math.max(s.x-130,8),CW-278);
   const cy=Math.min(Math.max(s.y-pl.r*cam.zoom-155,8),CH-215);
@@ -1897,10 +1943,52 @@ document.getElementById('w-example').addEventListener('click',()=>{
 /* ============================================================
    INIT + LOOP
    ============================================================ */
+// ── Shooting stars ──
+const _shootingStars=[];
+let _nextShoot=15000+Math.random()*30000; // first one in 15-45s
+let _loopMs=0;
+function spawnShootingStar(){
+  const angle=0.18+Math.random()*0.32; // radians from horizontal, slight downward
+  const speed=420+Math.random()*280;   // px/s
+  const len=90+Math.random()*180;
+  const x=Math.random()*CW;
+  const y=Math.random()*(CH*0.65);     // appear in upper 65% of screen
+  _shootingStars.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,len,life:1.0,decay:0.55+Math.random()*0.35});
+}
+function drawShootingStars(dt){
+  _loopMs+=dt;
+  if(_loopMs>=_nextShoot){
+    spawnShootingStar();
+    if(Math.random()<0.18)setTimeout(spawnShootingStar,120+Math.random()*200); // rare double
+    _nextShoot=_loopMs+15000+Math.random()*30000;
+  }
+  for(let i=_shootingStars.length-1;i>=0;i--){
+    const s=_shootingStars[i];
+    const dtSec=dt/1000;
+    s.x+=s.vx*dtSec;s.y+=s.vy*dtSec;s.life-=s.decay*dtSec;
+    if(s.life<=0||s.x>CW+200||s.y>CH+200){_shootingStars.splice(i,1);continue;}
+    const tail=s.len*s.life;
+    const gx=s.x-Math.cos(Math.atan2(s.vy,s.vx))*tail;
+    const gy=s.y-Math.sin(Math.atan2(s.vy,s.vx))*tail;
+    const gr=ctx.createLinearGradient(gx,gy,s.x,s.y);
+    gr.addColorStop(0,'rgba(255,255,255,0)');
+    gr.addColorStop(0.7,'rgba(200,220,255,'+( s.life*0.45)+')');
+    gr.addColorStop(1,'rgba(255,255,255,'+(s.life*0.9)+')');
+    ctx.save();ctx.strokeStyle=gr;ctx.lineWidth=1.4+s.life*0.8;
+    ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(s.x,s.y);ctx.stroke();
+    // tiny bright head
+    ctx.globalAlpha=s.life*0.95;ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.arc(s.x,s.y,1.2+s.life*0.6,0,Math.PI*2);ctx.fill();
+    ctx.restore();ctx.globalAlpha=1;
+  }
+}
+let _prevLoopT=0;
 function loop(t){
   tick=t;
   ctx.fillStyle='#030b1a';ctx.fillRect(0,0,CW,CH);
-  drawStarLayers(t);drawNebulae();
+  const _dt=_prevLoopT?t-_prevLoopT:16;_prevLoopT=t;
+  drawStarLayers(t);drawNebulae();drawShootingStars(_dt);
   SYSTEMS.forEach((sys,si)=>{const sp=SYS_POS[si];sys.planets.forEach((_,pi)=>drawOrbit(sp,SYSTEMS[si].planets[pi].dist));drawSun(sp,sys,t);sys.planets.forEach((_,pi)=>drawPlanet(si,pi));});
   if(camAnim.active){camAnim.t++;const p=Math.min(1,camAnim.t/camAnim.dur),ep=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;cam.x=camAnim.sx+(camAnim.ex-camAnim.sx)*ep;cam.y=camAnim.sy+(camAnim.ey-camAnim.sy)*ep;cam.zoom=camAnim.sz+(camAnim.ez-camAnim.sz)*ep;if(camAnim.t>=camAnim.dur){camAnim.active=false;if(camAnim.onDone){camAnim.onDone();camAnim.onDone=null;}}}
   if(ship.moving){
