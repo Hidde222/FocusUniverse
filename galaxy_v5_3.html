@@ -190,8 +190,6 @@ input[type=range].m-rng.fuel:active::-webkit-slider-thumb{
 .ss-opt canvas{width:70px;height:70px;display:block;}
 #credits-chip{position:absolute;top:108px;right:12px;z-index:30;display:flex;align-items:center;gap:7px;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:18px;padding:6px 16px;font-family:var(--font-sans);font-size:13px;font-weight:600;color:#d9e2f0;letter-spacing:0.04em;pointer-events:none;}
 #credits-chip .cc-ico{font-size:15px;}
-#cc-give{position:absolute;top:146px;right:12px;z-index:30;background:rgba(4,8,28,0.88);border:0.5px solid rgba(170,185,210,0.38);border-radius:14px;padding:4px 12px;font-family:var(--font-sans);font-size:11.5px;font-weight:600;color:#d9e2f0;cursor:pointer;letter-spacing:0.04em;transition:border-color .15s,color .15s;}
-#cc-give:hover{border-color:rgba(200,215,240,0.65);color:#fff;}
 .ss-opt.locked{opacity:0.55;cursor:default;}
 .ss-opt .ss-cost{font-size:10px;color:#c8d4e6;margin-top:1px;}
 #hangar-pop{max-height:86vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(120,150,220,0.35) transparent;}
@@ -214,7 +212,6 @@ input[type=range].m-rng.fuel:active::-webkit-slider-thumb{
   #tip .tn{font-size:15px;}#tip .ts{font-size:12.5px;}
   #tc-time{font-size:16px;}#tc-ico{font-size:15px;}
   #credits-chip{font-size:15px;padding:8px 20px;}
-  #cc-give{top:154px;font-size:13px;}
   #gal-select .gs-title{font-size:26px;}
   #gal-select .gs-sub{font-size:14.5px;}
   .g-card canvas{width:300px;height:300px;margin:-40px;}
@@ -237,7 +234,6 @@ input[type=range].m-rng.fuel:active::-webkit-slider-thumb{
   #search-wrap{width:320px;}
   #search-in{font-size:16px;}
   #credits-chip{font-size:17px;}
-  #cc-give{top:160px;font-size:14px;}
   #gal-select .gs-title{font-size:31px;}
   #gal-select .gs-sub{font-size:16px;}
   .g-card canvas{width:360px;height:360px;margin:-48px;}
@@ -276,7 +272,6 @@ input[type=range].m-rng.fuel:active::-webkit-slider-thumb{
     <div id="sys-card"></div>
     <div id="timer-chip" onclick="openMission()" style="cursor:pointer;"><span id="tc-ico">🚀</span><span id="tc-time">25:00</span><button id="tc-abort" onclick="event.stopPropagation();abortMission()" title="Abort mission">✕</button></div>
     <div id="credits-chip" style="display:none;"><span class="cc-ico">⬡</span><span id="cc-num">0</span> credits</div>
-    <button id="cc-give" onclick="addCredits(100)" title="Testing: add 100 credits">+100 ⬡</button>
   </div>
   <div id="bottom">
     <div id="panel-inner"><p class="hint">Click a sun or planet to explore &nbsp;·&nbsp; drag to pan &nbsp;·&nbsp; scroll to zoom</p></div>
@@ -1270,241 +1265,37 @@ function hexToRgb(hex){let c=hex.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1
 /* ============================================================
    AUDIO — ambient generative music + sound effects
    ============================================================ */
-let AC=null,masterVol=null,sfxVol=null,musicBus=null,biomeBus=null,musicOn=true,sfxOn=true,musicPlaying=false;
-let _musicOsc=[],_musicTimers=[];
-let _biomeOsc=[],_biomeTimers=[],biomePlaying=false,currentBiome=null;
-const MUSIC_LEVEL=0.5;
+let AC=null,masterVol=null,sfxVol=null,musicOn=true,sfxOn=true;
 
 function initAC(){
   if(AC)return;
   AC=new(window.AudioContext||window.webkitAudioContext)();
   masterVol=AC.createGain();masterVol.gain.value=0.72;masterVol.connect(AC.destination);
   sfxVol=AC.createGain();sfxVol.gain.value=1.0;sfxVol.connect(masterVol);
-  // music bus: gain → warm lowpass → master (+ gentle dark reverb send)
-  musicBus=AC.createGain();musicBus.gain.value=0;
-  const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;lp.Q.value=0.3;
-  musicBus.connect(lp);
-  const rLen=AC.sampleRate*1.8,rBuf=AC.createBuffer(2,rLen,AC.sampleRate);
-  for(let c=0;c<2;c++){const d=rBuf.getChannelData(c);for(let i=0;i<rLen;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/rLen,3);}
-  const rev=AC.createConvolver();rev.buffer=rBuf;
-  const revGain=AC.createGain();revGain.gain.value=0.2;
-  lp.connect(rev);rev.connect(revGain);revGain.connect(masterVol);
-  lp.connect(masterVol);
-  // biome bus: separate gain → same lp chain (created fresh per biome)
-  biomeBus=AC.createGain();biomeBus.gain.value=0;
-  biomeBus.connect(lp);
 }
 
-/* ── Ambient music — idempotent start, fully stoppable ── */
+/* ── Music: looping space-jazz mp3 ── */
+const MUSIC_SRC='Space Jazz III Jazzy Beats 1 Hour Playlist-256x144-mp4a (1).mp3';
+let musicEl=null;
+function initMusicEl(){
+  if(musicEl)return;
+  musicEl=new Audio(MUSIC_SRC);
+  musicEl.loop=true;
+  musicEl.volume=0.45;
+  musicEl.preload='auto';
+}
 function startMusic(){
-  initAC();
-  if(!musicOn||musicPlaying)return;
-  musicPlaying=true;
-  musicBus.gain.cancelScheduledValues(AC.currentTime);
-  musicBus.gain.setTargetAtTime(MUSIC_LEVEL,AC.currentTime,2.5);
-  const t=AC.currentTime;
-
-  // ── Lo-fi universe ambient ──
-  // Sub-bass sine root — barely felt, not heard
-  function subbass(freq,gain,det){
-    const o=AC.createOscillator(),g=AC.createGain(),lfo=AC.createOscillator(),lg=AC.createGain();
-    o.type='sine';o.frequency.value=freq;o.detune.value=det;
-    g.gain.value=gain;
-    lfo.type='sine';lfo.frequency.value=0.03+Math.random()*0.03;lg.gain.value=gain*0.2;
-    lfo.connect(lg);lg.connect(g.gain);
-    o.connect(g);g.connect(musicBus);o.start(t);lfo.start(t);
-    _musicOsc.push(o,lfo);
-  }
-  subbass(55.0,0.08,-5);subbass(55.0,0.06,5);subbass(82.4,0.04,0);
-
-  // Warm Rhodes-style chord pads (C-major pentatonic in a high register for brightness)
-  // C D E G A — gentle and uplifting
-  const lofi=[261.6,293.7,329.6,392.0,440.0,523.3,587.3];
-  function warmPad(freq,delay,dur,vol){
-    if(!musicPlaying)return;
-    const now=AC.currentTime+delay;
-    const o=AC.createOscillator(),g=AC.createGain();
-    // detune slightly for that lo-fi vinyl warmth
-    o.type='triangle';o.frequency.value=freq;o.detune.value=Math.random()*8-4;
-    // long slow attack + gentle release = very calm
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(vol||0.1,now+3.5);
-    g.gain.setValueAtTime(vol||0.1,now+dur-4);
-    g.gain.linearRampToValueAtTime(0,now+dur);
-    o.connect(g);g.connect(musicBus);
-    o.start(now);o.stop(now+dur+0.1);
-  }
-  // Slow chord cycle — new chord every 18-28s, three notes staggered
-  function chordCycle(){
-    if(!musicPlaying)return;
-    const root=Math.floor(Math.random()*4); // pick chord root from pentatonic
-    const notes=[lofi[root],lofi[root+2],lofi[root+1],lofi[root+3]||lofi[0]*2];
-    const dur=22+Math.random()*10;
-    notes.forEach((f,i)=>warmPad(f,i*3.2,dur,0.09));
-    // occasional upper octave sparkle
-    if(Math.random()<0.4)warmPad(lofi[Math.floor(Math.random()*lofi.length)]*2,5,14,0.04);
-    _musicTimers.push(setTimeout(chordCycle,18000+Math.random()*10000));
-  }
-  chordCycle();
-
-  // Gentle high-shelf sparkle — very quiet, like vinyl dust
-  function sparkle(){
-    if(!musicPlaying)return;
-    const now=AC.currentTime;
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type='sine';
-    o.frequency.value=lofi[Math.floor(Math.random()*lofi.length)]*4;
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(0.015,now+2.5);
-    g.gain.linearRampToValueAtTime(0,now+9);
-    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+9.5);
-    _musicTimers.push(setTimeout(sparkle,12000+Math.random()*14000));
-  }
-  _musicTimers.push(setTimeout(sparkle,8000));
-
-  // Subtle slow bass note walk — lo-fi chord root movement
-  function bassWalk(){
-    if(!musicPlaying)return;
-    const now=AC.currentTime;
-    const bassNotes=[65.4,73.4,82.4,98.0,110.0];
-    const f=bassNotes[Math.floor(Math.random()*bassNotes.length)];
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type='sine';o.frequency.value=f;
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(0.12,now+1.8);
-    g.gain.linearRampToValueAtTime(0,now+6);
-    o.connect(g);g.connect(musicBus);o.start(now);o.stop(now+6.5);
-    _musicTimers.push(setTimeout(bassWalk,9000+Math.random()*12000));
-  }
-  _musicTimers.push(setTimeout(bassWalk,4000));
-}
-
-function stopMusic(){
-  if(!AC||!musicPlaying)return;
-  musicPlaying=false;
-  _musicTimers.forEach(clearTimeout);_musicTimers=[];
-  musicBus.gain.cancelScheduledValues(AC.currentTime);
-  musicBus.gain.setTargetAtTime(0,AC.currentTime,0.25);
-  const osc=_musicOsc;_musicOsc=[];
-  setTimeout(()=>{osc.forEach(o=>{try{o.stop();}catch(e){}});},1500);
-}
-
-/* ── Biome-specific planet music ── */
-const BIOME_MUSIC={
-  // Each biome: {scale (Hz array), wave, tempo (ms between notes), drones}
-  gas:     {scale:[87.3,98.0,110.0,130.8,146.8,174.6],wave:'sine',   tempo:3800,color:'warm'},
-  earth:   {scale:[130.8,164.8,196.0,220.0,261.6,293.7],wave:'triangle',tempo:2200,color:'bright'},
-  mars:    {scale:[110.0,123.5,138.6,164.8,185.0,220.0],wave:'sawtooth',tempo:3200,color:'dusty'},
-  ice:     {scale:[220.0,261.6,293.7,349.2,392.0,440.0],wave:'sine',   tempo:4500,color:'crystal'},
-  lava:    {scale:[73.4,82.4,98.0,110.0,123.5,146.8],  wave:'sawtooth',tempo:2600,color:'hot'},
-  rocky:   {scale:[98.0,116.5,130.8,155.6,174.6,196.0],wave:'triangle',tempo:3500,color:'gritty'},
-  ocean:   {scale:[146.8,174.6,196.0,220.0,246.9,293.7],wave:'sine',   tempo:2800,color:'fluid'},
-  desert:  {scale:[110.0,130.8,146.8,165.0,196.0,220.0],wave:'sine',  tempo:4200,color:'arid'},
-  toxic:   {scale:[116.5,138.6,155.6,174.6,196.0,233.1],wave:'sawtooth',tempo:2400,color:'acid'},
-  jungle:  {scale:[164.8,196.0,220.0,261.6,293.7,329.6],wave:'triangle',tempo:1800,color:'lush'},
-  ash:     {scale:[87.3,104.0,116.5,138.6,155.6,174.6], wave:'sawtooth',tempo:3800,color:'grey'},
-  tundra:  {scale:[196.0,220.0,246.9,261.6,293.7,329.6],wave:'sine',   tempo:5000,color:'cold'},
-  alien:   {scale:[138.6,174.6,207.7,246.9,293.7,349.2],wave:'sawtooth',tempo:2000,color:'weird'},
-};
-
-function stopBiomeMusic(quick){
-  if(!AC||!biomePlaying)return;
-  biomePlaying=false;currentBiome=null;
-  _biomeTimers.forEach(clearTimeout);_biomeTimers=[];
-  biomeBus.gain.cancelScheduledValues(AC.currentTime);
-  biomeBus.gain.setTargetAtTime(0,AC.currentTime,quick?0.15:0.8);
-  const osc=_biomeOsc;_biomeOsc=[];
-  setTimeout(()=>{osc.forEach(o=>{try{o.stop();}catch(e){}});},quick?600:2500);
-}
-
-function playBiomeMusic(biome){
-  initAC();
+  initMusicEl();
   if(!musicOn)return;
-  if(currentBiome===biome&&biomePlaying)return;  // already playing this biome
-  stopBiomeMusic(true);  // crossfade out current
-  if(!biome)return;
-  const cfg=BIOME_MUSIC[biome]||BIOME_MUSIC.rocky;
-  biomePlaying=true;currentBiome=biome;
-  const t=AC.currentTime+0.2;  // slight delay after fade-out
-  // universe music stops entirely while at a planet — biome music only
-  musicBus.gain.cancelScheduledValues(t);
-  musicBus.gain.setTargetAtTime(0,t,0.9);
-  // biome bus fade in
-  biomeBus.gain.cancelScheduledValues(t);
-  biomeBus.gain.setTargetAtTime(0.55,t+0.3,1.0);
-
-  // 2 detuned drone oscillators (tonic pedal)
-  function bdrone(freq,gain,det){
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type='sine';o.frequency.value=freq;o.detune.value=det;
-    const lfo=AC.createOscillator(),lg=AC.createGain();
-    lfo.type='sine';lfo.frequency.value=0.04+Math.random()*0.06;lg.gain.value=gain*0.25;
-    lfo.connect(lg);lg.connect(g.gain);g.gain.value=gain;
-    o.connect(g);g.connect(biomeBus);o.start(t);lfo.start(t);
-    _biomeOsc.push(o,lfo);
-  }
-  bdrone(cfg.scale[0],0.18,-4);bdrone(cfg.scale[0],0.12,4);bdrone(cfg.scale[0]*2,0.06,0);
-
-  // melody: step through scale with gaps, looping
-  const sc=cfg.scale;
-  let step=0;
-  function mstep(){
-    if(!biomePlaying)return;
-    const now=AC.currentTime;
-    const freq=sc[step%sc.length]*(step>sc.length-1&&Math.random()<0.3?2:1);
-    step++;
-    // skip a beat randomly for texture
-    if(Math.random()<0.22){_biomeTimers.push(setTimeout(mstep,cfg.tempo*0.9));return;}
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type=cfg.wave;o.frequency.value=freq;o.detune.value=Math.random()*10-5;
-    const dur=cfg.tempo*0.0014*1000;  // note length ~70% of tempo in ms → seconds
-    const noteDur=Math.min(4.5,cfg.tempo*0.001*0.7);
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(0.14,now+0.08);
-    g.gain.setValueAtTime(0.14,now+noteDur-0.12);
-    g.gain.linearRampToValueAtTime(0,now+noteDur);
-    o.connect(g);g.connect(biomeBus);
-    o.start(now);o.stop(now+noteDur+0.05);
-    // note goes into osc tracking so stopBiomeMusic can kill it
-    // (short-lived osc is fine to track — stop() on already-stopped osc is caught)
-    _biomeOsc.push(o);
-    const nextDelay=cfg.tempo*(0.7+Math.random()*0.6);
-    _biomeTimers.push(setTimeout(mstep,nextDelay));
-  }
-  _biomeTimers.push(setTimeout(mstep,800));
-
-  // shimmer layer (high sine overtone, biome-specific)
-  function bshimmer(){
-    if(!biomePlaying)return;
-    const now=AC.currentTime;
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type='sine';o.frequency.value=sc[Math.floor(Math.random()*sc.length)]*4;
-    g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(0.018,now+2);g.gain.linearRampToValueAtTime(0,now+8);
-    o.connect(g);g.connect(biomeBus);o.start(now);o.stop(now+8.5);
-    _biomeTimers.push(setTimeout(bshimmer,8000+Math.random()*10000));
-  }
-  _biomeTimers.push(setTimeout(bshimmer,3000+Math.random()*4000));
+  musicEl.play().catch(()=>{}); // blocked until user gesture; resumeAC retries
 }
-
-function leavePlanet(){
-  if(!biomePlaying)return;
-  stopBiomeMusic(false);
-  // restore ambient volume
-  if(AC&&musicOn){
-    musicBus.gain.cancelScheduledValues(AC.currentTime);
-    musicBus.gain.setTargetAtTime(MUSIC_LEVEL,AC.currentTime+0.5,1.2);
-  }
+function stopMusic(){
+  if(musicEl)musicEl.pause();
 }
 
 function toggleMusic(){
-  initAC();if(AC.state==='suspended')AC.resume();
   musicOn=!musicOn;
-  if(musicOn){
-    startMusic();
-    if(parked.pl>=0&&parked.sys>=0&&SYSTEMS[parked.sys]&&SYSTEMS[parked.sys].planets[parked.pl]&&!ship.moving){
-      playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
-    }
-  }else{stopMusic();stopBiomeMusic(true);}
+  if(musicOn)startMusic();else stopMusic();
   document.getElementById('btn-music').textContent=musicOn?'♪ Music':'♪ Off';
 }
 function toggleSfx(){
@@ -1570,21 +1361,16 @@ function sfx(type){
   if(type==='click'||type==='travel'||type==='unflag'||type==='open')o.connect(g);
 }
 
-// First interaction unlocks audio; startMusic guards itself so this is safe per-click
+// First interaction unlocks audio
 function resumeAC(){
   initAC();if(AC.state==='suspended')AC.resume();
-  if(musicOn&&!musicPlaying){
-    startMusic();
-    if(parked.pl>=0&&parked.sys>=0&&!ship.moving&&SYSTEMS[parked.sys]&&SYSTEMS[parked.sys].planets[parked.pl]){
-      playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
-    }
-  }
+  if(musicOn&&(!musicEl||musicEl.paused))startMusic();
 }
 
 /* ============================================================
    ACTIONS
    ============================================================ */
-window.flyTo=function(si,pi){sfx('travel');leavePlanet();ship.orbit=null;
+window.flyTo=function(si,pi){sfx('travel');ship.orbit=null;
   const pp=planetPos(si,pi);
   ship.journeyDist=Math.hypot(pp.x-ship.wx,pp.y-ship.wy);
   ship.tx=pp.x+18;ship.ty=pp.y-14;ship.moving=true;
@@ -1603,7 +1389,7 @@ window.clearFlags=function(){galaxy.systems.forEach(s=>s.planets.forEach(p=>p.do
 
 let sysCardSi=-1;
 window.closeSysCard=function(){document.getElementById('sys-card').style.display='none';sysCardSi=-1;};
-window.travelTo=function(si){sfx('travel');leavePlanet();
+window.travelTo=function(si){sfx('travel');
   closeSysCard();
   const sp=SYS_POS[si],sun=SYSTEMS[si].sun;
   // park in a safe orbit around the star, entering at the nearest point
@@ -2158,12 +1944,7 @@ function loop(t){
       const spd=Math.max(2,Math.min(32,jd*0.012)*curve+2);
       ship.wx+=dx/dist*spd;ship.wy+=dy/dist*spd;
       ship.angle=Math.atan2(dy,dx)+Math.PI/2;
-    }else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;sfx('arrive');
-      // Trigger biome music when landing on a planet
-      if(parked.pl>=0&&parked.sys>=0&&SYSTEMS[parked.sys]&&SYSTEMS[parked.sys].planets[parked.pl]){
-        playBiomeMusic(SYSTEMS[parked.sys].planets[parked.pl].biome||'rocky');
-      }else{leavePlanet();}
-    }
+    }else{ship.wx=ship.tx;ship.wy=ship.ty;ship.moving=false;sfx('arrive');}
   }else if(ship.orbit&&parked.sys===ship.orbit.si&&parked.pl<0&&SYS_POS[ship.orbit.si]){
     // slow safe orbit around the star
     const ob=ship.orbit,sp=SYS_POS[ob.si];
