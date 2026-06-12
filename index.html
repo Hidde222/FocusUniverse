@@ -1,4 +1,5 @@
 
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -7,7 +8,7 @@
 html,body{height:100%;background:var(--c0);}
 #root{position:relative;display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--c0);overflow:hidden;font-family:var(--font-sans);}
 #canvaswrap{position:relative;flex:1;overflow:hidden;min-height:0;}
-#c{display:block;width:100%;height:100%;cursor:grab;}
+#c{display:block;width:100%;height:100%;cursor:grab;touch-action:none;}
 #c.grabbing{cursor:grabbing;}
 #hud-tl,#hud-tr{position:absolute;top:12px;background:rgba(6,12,32,0.82);border:0.5px solid var(--bord);border-radius:10px;padding:9px 14px;pointer-events:none;backdrop-filter:blur(8px);}
 #hud-tl{left:12px;}
@@ -201,6 +202,27 @@ input[type=range].m-rng.fuel:active::-webkit-slider-thumb{
 #panel-inner::-webkit-scrollbar,#ed-body::-webkit-scrollbar{width:8px;}
 #panel-inner::-webkit-scrollbar-track,#ed-body::-webkit-scrollbar-track{background:transparent;}
 #panel-inner::-webkit-scrollbar-thumb,#ed-body::-webkit-scrollbar-thumb{background:rgba(120,150,220,0.32);border-radius:8px;}
+/* ---- mobile tweaks ---- */
+@media (max-width:640px){
+  #hud-tl,#hud-tr{padding:6px 9px;border-radius:8px;}
+  .hl{font-size:9px;}.hv{font-size:11.5px;}
+  #search-wrap{width:150px;top:84px;}
+  #search-in{font-size:12px;padding:6px 10px;}
+  #ctrls{flex-wrap:wrap;}
+  #ctrls button{font-size:11px;padding:5px 9px;}
+  #credits-chip{font-size:11.5px;padding:5px 12px;top:92px;}
+  .g-card canvas{width:170px;height:170px;margin:-24px;}
+  .g-add-circle{width:124px;height:124px;}
+  .g-name{font-size:13px;max-width:150px;}
+  #gal-select .gs-title{font-size:16px;}
+  #gal-select .gs-sub{font-size:11px;padding:0 18px;text-align:center;}
+  .gs-arrow{width:38px;height:38px;font-size:17px;}
+  #ship-sel{top:12px;right:12px;}
+  #hangar-btn{font-size:11px;padding:7px 13px;}
+  .ss-opt{width:64px;padding:6px 4px 5px;}
+  .ss-opt canvas{width:50px;height:50px;}
+  #gal-cards{gap:24px;}
+}
 /* ---- adaptive scaling for larger monitors ---- */
 @media (min-width:1700px){
   .hl{font-size:11px;}.hv{font-size:15px;}
@@ -376,10 +398,10 @@ function clone(o){return JSON.parse(JSON.stringify(o));}
 const HUB_KEY='sno_galaxies_v1';
 let _mem=null,hub=null;
 function loadHub(){
-  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=1000000;if(!h.unlocked)h.unlocked=[0,1,2];if(!h.unlockedEx)h.unlockedEx=[0];return h;}}}catch(e){}
+  try{const r=localStorage.getItem(HUB_KEY);if(r){const h=JSON.parse(r);if(h&&Array.isArray(h.galaxies)){if(h.credits==null)h.credits=0;if(!h.unlocked)h.unlocked=[0,1,2];if(!h.unlockedEx)h.unlockedEx=[0];return h;}}}catch(e){}
   // migrate the old single-galaxy save into the hub
   try{const old=localStorage.getItem(STORE_KEY);if(old){const g=JSON.parse(old);if(g&&g.systems)return{galaxies:[g],current:0};}}catch(e){}
-  return _mem||{galaxies:[],current:-1,credits:1000000,unlocked:[0,1,2],unlockedEx:[0]};
+  return _mem||{galaxies:[],current:-1,credits:0,unlocked:[0,1,2],unlockedEx:[0]};
 }
 function saveData(){try{localStorage.setItem(HUB_KEY,JSON.stringify(hub));}catch(e){_mem=hub;}}
 
@@ -1615,7 +1637,7 @@ function updateChip(){
    INTERACTION (pan / zoom / click)
    ============================================================ */
 const cvRect=()=>canvas.getBoundingClientRect();
-function exy(e){const r=cvRect(),t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(CW/r.width),y:(t.clientY-r.top)*(CH/r.height)};}
+function exy(e){const r=cvRect(),t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;return{x:(t.clientX-r.left)*(CW/r.width),y:(t.clientY-r.top)*(CH/r.height)};}
 canvas.addEventListener('mousedown',e=>{resumeAC();dragging=true;canvas.classList.add('grabbing');const p=exy(e);dragLast=p;clickStart=p;});
 canvas.addEventListener('mousemove',e=>{
   const p=exy(e);
@@ -1649,6 +1671,52 @@ canvas.addEventListener('wheel',e=>{
   cam.zoom=Math.max(0.04,Math.min(0.9,cam.zoom*f));
   cam.x=w.x-(p.x-CW/2)/cam.zoom;cam.y=w.y-(p.y-CH/2)/cam.zoom;
 },{passive:false});
+/* ── Touch controls: one-finger drag/tap, two-finger pinch zoom ── */
+let _pinch=null;
+function _touchPt(t){const r=cvRect();return{x:(t.clientX-r.left)*(CW/r.width),y:(t.clientY-r.top)*(CH/r.height)};}
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();resumeAC();
+  if(e.touches.length===1){
+    dragging=true;const p=exy(e);dragLast=p;clickStart=p;
+  }else if(e.touches.length===2){
+    dragging=false;
+    const a=_touchPt(e.touches[0]),b=_touchPt(e.touches[1]);
+    _pinch={d:Math.hypot(b.x-a.x,b.y-a.y),zoom:cam.zoom};
+  }
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(_pinch&&e.touches.length===2){
+    const a=_touchPt(e.touches[0]),b=_touchPt(e.touches[1]);
+    const nd=Math.hypot(b.x-a.x,b.y-a.y);
+    const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    const w=s2w(mid.x,mid.y);
+    cam.zoom=Math.max(0.04,Math.min(0.9,_pinch.zoom*(nd/Math.max(1,_pinch.d))));
+    cam.x=w.x-(mid.x-CW/2)/cam.zoom;cam.y=w.y-(mid.y-CH/2)/cam.zoom;
+  }else if(dragging&&e.touches.length===1){
+    const p=exy(e);
+    cam.x-=(p.x-dragLast.x)/cam.zoom;cam.y-=(p.y-dragLast.y)/cam.zoom;
+    dragLast=p;
+  }
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  if(e.touches.length<2)_pinch=null;
+  if(e.touches.length===0){
+    if(dragging){
+      const p=exy(e),dx=p.x-clickStart.x,dy=p.y-clickStart.y;
+      if(Math.hypot(dx,dy)<10){
+        const w=s2w(p.x,p.y),hit=hitTest(w.x,w.y);
+        if(hit){
+          if(hit.type==='planet'){showPlanetCard(hit.si,hit.pi);showPanel(hit.si,-1);}
+          else{showSysCard(hit.si);showPanel(hit.si,-1);}
+        }else{closeSysCard();showPanel(-1,-1);}
+      }
+    }
+    dragging=false;
+  }
+},{passive:false});
+canvas.addEventListener('touchcancel',()=>{dragging=false;_pinch=null;});
+
 window.addEventListener('resize',()=>{resize();});
 
 /* ============================================================
